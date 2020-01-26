@@ -11,7 +11,7 @@ CUSTOM_MODULES_DIR="$BASEDIR/modules/"
 
 # remove custom modules
 if [ -d "$LIBRA_MODULES_DIR" ]; then
-    rm -rf $LIBRA_MODULES_DIRr
+    rm -rf $LIBRA_MODULES_DIR
 fi
 
 # create custom modules directory
