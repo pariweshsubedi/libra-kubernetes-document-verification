@@ -1,0 +1,21 @@
+import 0x0.LibraAccount;
+import 0x0.LibraCoin;
+import 0xbe809242b3ee028cffafabe6ac14a7f03db95fd7ab35917630edfd0bbbe60ee3.EarmarkedLibraCoin;
+
+main() {
+  let recipient_address: address;
+  let coin: LibraCoin.T;
+  let earmarked_coin: EarmarkedLibraCoin.T;
+  let sender: address;
+
+  recipient_address = 0xbe809242b3ee028cffafabe6ac14a7f03db95fd7ab35917630edfd0bbbe60ee3;
+  coin = LibraAccount.withdraw_from_sender(10);
+  EarmarkedLibraCoin.create(move(coin), move(recipient_address));
+
+  //earmarked_coin = EarmarkedLibraCoin.claim_for_creator();
+  //coin = EarmarkedLibraCoin.unwrap(move(earmarked_coin));
+  //sender = get_txn_sender();
+  //LibraAccount.deposit(move(sender), move(coin));
+
+  return;
+}
