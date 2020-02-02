@@ -38,7 +38,7 @@ module Course {
         requester: address,
     }
 
-    // Deposits the `to_deposit` coin into the `payee`'s account
+    // Adds Student as enrolled students
     public add_student(student: address) acquires T {
         Self.add_student_with_event(move(student), get_txn_sender());
         return;
@@ -52,9 +52,7 @@ module Course {
         let new_student: Self.Student;
 
         // Verify that the student account exists
-        // assert(exists<T>(copy(transaction_sender)), 5);
-        assert(LibraAccount.exists(copy(student_address)) == false, 5);
-        
+        assert(LibraAccount.exists(copy(student_address)), 5);
 
         // create new student using Student struct
         new_student = Student { student_address: copy(student_address)};
@@ -70,10 +68,10 @@ module Course {
 
         // release event after student addition
         LibraAccount.emit_event<Self.StudentAddedEvent>(
-            &mut copy(requester_account_ref).student_added_events,
+            &mut move(requester_account_ref).student_added_events,
             StudentAddedEvent {
-                student: copy(student_address),
-                requester: copy(requester_address)
+                student: move(student_address),
+                requester: move(requester_address)
             },
         );
 
