@@ -1,0 +1,115 @@
+// account: starlab, 1000000
+// account: alice, 1000000
+// account: bob, 1000000
+
+// A module for earmarking a coin for a specific recipient
+module Course {
+    import 0x0.LibraAccount;
+    import 0x0.LibraCoin;
+    import 0x0.Vector;
+
+    struct Student {
+      student_address: address
+    }
+
+    // A handle for a event such that:
+    // 1. Other modules can emit event to this handle.
+    // 2. Storage can use this handle to prove the total number of events that happened in the past.
+    resource EventHandle<T: unrestricted> {
+        // Total number of events emitted to this event stream.
+        counter: u64,
+        // A globally unique ID for this event stream.
+        guid: bytearray,
+    }
+
+    resource T {
+        someBoolean: bool,
+        enrolledStudents: Vector.T<Self.Student>,
+
+        // events
+        student_added_events: Self.EventHandle<Self.StudentAddedEvent>,
+    }
+
+    // Message Student Added Event
+    struct StudentAddedEvent {
+        // Address of the Student added
+        student: address,
+        // Address of the requester who wants to add student
+        requester: address,
+    }
+
+    // Deposits the `to_deposit` coin into the `payee`'s account
+    public add_student(student: address) acquires T {
+        Self.add_student_with_event(move(student), get_txn_sender());
+        return;
+    }
+
+    public add_student_with_event(
+        student_address: address,
+        requester_address: address
+    ) acquires T {
+        let requester_account_ref: &mut Self.T;
+        let new_student: Self.Student;
+
+        // Verify that the student account exists
+        // assert(exists<T>(copy(transaction_sender)), 5);
+        assert(LibraAccount.exists(copy(student_address)) == false, 5);
+        
+
+        // create new student using Student struct
+        new_student = Student { student_address: copy(student_address)};
+        
+        // get the requestor's resource to add students in it
+        requester_account_ref = borrow_global_mut<T>(copy(requester_address));        
+
+        // set some value in the variable
+        // *(&mut move(requester_account_ref).someBoolean) = false;
+        
+        //add elements to vector
+        Vector.push_back<Self.Student>(&mut move(requester_account_ref).enrolledStudents, move(new_student));
+
+        // release event after student addition
+        // Self.emit_event<Self.StudentAddedEvent>(
+        //     &mut move(requester_account_ref).student_added_events,
+        //     StudentAddedEvent {
+        //         student: copy(student_address),
+        //         requester: copy(requester_address)
+        //     },
+        // );
+
+        // LibraAccount.emit_event<Self.StudentAddedEvent>(
+        //     &mut move(requester_account_ref).student_added_events,
+        //     StudentAddedEvent {
+        //         student: copy(student_address),
+        //         requester: copy(requester_address)
+        //     },
+        // );
+
+        return;
+    }
+
+    // public
+
+
+    // Emit an event with payload `msg` by using handle's key and counter. Will change the payload from bytearray to a
+    // generic type parameter once we have generics.
+    public emit_event<T: unrestricted>(handle_ref: &mut Self.EventHandle<T>, msg: T) {
+        let count: &mut u64;
+        let guid: bytearray;
+
+        guid = *&copy(handle_ref).guid;
+        count = &mut move(handle_ref).counter;
+
+        // emit event
+        
+        // LibraAccount.emit_event<T>(move(guid), *copy(count), move(msg));
+        // Self.write_to_event_store<T>(move(guid), *copy(count), move(msg));
+        *move(count) = *copy(count) + 1;
+        return;
+    }
+
+    // // Native procedure that writes to the actual event stream in Event store
+    // // This will replace the "native" portion of EmitEvent bytecode
+    // native write_to_event_store<T: unrestricted>(guid: bytearray, count: u64, msg: T);
+
+}
