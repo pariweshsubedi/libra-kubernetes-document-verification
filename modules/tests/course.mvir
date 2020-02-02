@@ -27,7 +27,7 @@ module Course {
         enrolledStudents: Vector.T<Self.Student>,
 
         // events
-        student_added_events: Self.EventHandle<Self.StudentAddedEvent>,
+        student_added_events: LibraAccount.EventHandle<Self.StudentAddedEvent>
     }
 
     // Message Student Added Event
@@ -66,50 +66,18 @@ module Course {
         // *(&mut move(requester_account_ref).someBoolean) = false;
         
         //add elements to vector
-        Vector.push_back<Self.Student>(&mut move(requester_account_ref).enrolledStudents, move(new_student));
+        Vector.push_back<Self.Student>(&mut copy(requester_account_ref).enrolledStudents, move(new_student));
 
         // release event after student addition
-        // Self.emit_event<Self.StudentAddedEvent>(
-        //     &mut move(requester_account_ref).student_added_events,
-        //     StudentAddedEvent {
-        //         student: copy(student_address),
-        //         requester: copy(requester_address)
-        //     },
-        // );
-
-        // LibraAccount.emit_event<Self.StudentAddedEvent>(
-        //     &mut move(requester_account_ref).student_added_events,
-        //     StudentAddedEvent {
-        //         student: copy(student_address),
-        //         requester: copy(requester_address)
-        //     },
-        // );
+        LibraAccount.emit_event<Self.StudentAddedEvent>(
+            &mut copy(requester_account_ref).student_added_events,
+            StudentAddedEvent {
+                student: copy(student_address),
+                requester: copy(requester_address)
+            },
+        );
 
         return;
     }
-
-    // public
-
-
-    // Emit an event with payload `msg` by using handle's key and counter. Will change the payload from bytearray to a
-    // generic type parameter once we have generics.
-    public emit_event<T: unrestricted>(handle_ref: &mut Self.EventHandle<T>, msg: T) {
-        let count: &mut u64;
-        let guid: bytearray;
-
-        guid = *&copy(handle_ref).guid;
-        count = &mut move(handle_ref).counter;
-
-        // emit event
-        
-        // LibraAccount.emit_event<T>(move(guid), *copy(count), move(msg));
-        // Self.write_to_event_store<T>(move(guid), *copy(count), move(msg));
-        *move(count) = *copy(count) + 1;
-        return;
-    }
-
-    // // Native procedure that writes to the actual event stream in Event store
-    // // This will replace the "native" portion of EmitEvent bytecode
-    // native write_to_event_store<T: unrestricted>(guid: bytearray, count: u64, msg: T);
 
 }
