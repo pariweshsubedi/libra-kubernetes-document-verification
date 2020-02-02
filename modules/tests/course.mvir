@@ -1,8 +1,8 @@
-// account: starlab, 1000000
+// account: bbchain, 1000000
 // account: alice, 1000000
 // account: bob, 1000000
 
-// A module for earmarking a coin for a specific recipient
+// sender: bbchain
 module Course {
     import 0x0.LibraAccount;
     import 0x0.LibraCoin;
@@ -10,16 +10,6 @@ module Course {
 
     struct Student {
       student_address: address
-    }
-
-    // A handle for a event such that:
-    // 1. Other modules can emit event to this handle.
-    // 2. Storage can use this handle to prove the total number of events that happened in the past.
-    resource EventHandle<T: unrestricted> {
-        // Total number of events emitted to this event stream.
-        counter: u64,
-        // A globally unique ID for this event stream.
-        guid: bytearray,
     }
 
     resource T {
@@ -50,7 +40,7 @@ module Course {
     ) acquires T {
         let requester_account_ref: &mut Self.T;
         let new_student: Self.Student;
-
+        
         // Verify that the student account exists
         assert(LibraAccount.exists(copy(student_address)), 5);
 
@@ -68,14 +58,23 @@ module Course {
 
         // release event after student addition
         LibraAccount.emit_event<Self.StudentAddedEvent>(
-            &mut move(requester_account_ref).student_added_events,
+            &mut copy(requester_account_ref).student_added_events,
             StudentAddedEvent {
                 student: move(student_address),
                 requester: move(requester_address)
             },
         );
 
-        return;
+        return ;
+    }
+
+    // Returns number of enrolled student in a course
+    public get_enrolled_count(course_address: address) :u64 acquires T{
+        let course: &mut Self.T;
+        let total_enrolled: u64;
+        course = borrow_global_mut<T>(copy(course_address));
+        total_enrolled = Vector.length<Self.Student>(&copy(course).enrolledStudents);
+        return move(total_enrolled);
     }
 
 }
