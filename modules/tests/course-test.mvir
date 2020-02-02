@@ -1,7 +1,8 @@
 //! account: bbchain, 1000000
 //! account: mathcourse, 1000000
-//! account: alice, 1000000
-
+//! account: mathprofessor, 1000000
+//! account: mathevaluator, 1000000
+//! account: student1, 1000000
 
 //! sender: bbchain
 module Course {
@@ -11,6 +12,12 @@ module Course {
 
     struct Student {
       student_address: address
+    }
+
+    // define as resource so that other cant modify
+    resource Owners{
+        addresses: Vector.T<address>,
+        quorom: u64
     }
 
     resource T {
@@ -79,7 +86,15 @@ module Course {
     }
 
     // initialize a new course
-    public register(){
+    public register(_owners: Vector.T<address>, _quorom: u64){
+        
+        // initialize owners
+        move_to_sender<Owners> Owners {
+            addresses: move(_owners), 
+            quorom: move(_quorom)
+        };
+        
+        // initialize course
         move_to_sender<T> T {
             someBoolean: false,
             enrolledStudents: Vector.empty<Self.Student>(),
@@ -92,15 +107,19 @@ module Course {
 
 }
 
-// Test that a course can register
+
+// Test that a course can be registered
 //! new-transaction
 //! sender: mathcourse
 
 import {{bbchain}}.Course;
+import 0x0.Vector;
 
 main() {
     let total_enrolled: u64;
-    Course.register();
+    // register course
+    // TODO : create course with multiple owners
+    Course.register(Vector.empty<address>(),1);
     
     // initial number of students enrolled should be 0
     total_enrolled = Course.get_enrolled_count({{mathcourse}});
@@ -108,9 +127,10 @@ main() {
     return;
 }
 
+// Test that a course can enroll students
 //! new-transaction
 //! sender: mathcourse
-//! args: {{alice}}
+//! args: {{student1}}
 
 import {{bbchain}}.Course;
 import 0x0.U64Util;
