@@ -1,0 +1,23 @@
+import 0xf2a8dc2efcff4f15ed81110a474c0ea82a8e084e0e330857abbc5293a6f41895.Course;
+import 0x0.Vector;
+
+main() {
+    let total_enrolled: u64;
+    let new_total_enrolled: u64;
+    // register course
+    // TODO : create course with multiple owners
+    Course.register(Vector.empty<address>(),0);
+    
+    // initial number of students enrolled should be 0
+    total_enrolled = Course.get_enrolled_count(get_txn_sender());
+    assert(move(total_enrolled) == 0, 42);
+
+    // add student to course
+    Course.add_student(0xf2a8dc2efcff4f15ed81110a474c0ea82a8e084e0e330857abbc5293a6f41895);
+
+    // get number of enrolled students
+    new_total_enrolled = Course.get_enrolled_count(get_txn_sender());
+    assert(move(new_total_enrolled) == 1, 42);
+
+    return;
+}

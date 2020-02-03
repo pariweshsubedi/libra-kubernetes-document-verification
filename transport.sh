@@ -7,7 +7,7 @@ LIBRADIR="$HOME/libra"
 
 BASEDIR=$(dirname "$0")
 LIBRA_MODULES_DIR="$LIBRADIR/language/functional_tests/tests/testsuite/modules/custom_modules"
-CUSTOM_MODULES_DIR="$BASEDIR/modules/tests"
+CUSTOM_MODULES_DIR="$BASEDIR/tests"
 
 # remove custom modules
 if [ -d "$LIBRA_MODULES_DIR" ]; then

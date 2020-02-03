@@ -1,8 +1,3 @@
-// account: bbchain, 1000000
-// account: alice, 1000000
-// account: bob, 1000000
-
-// sender: bbchain
 module Course {
     import 0x0.LibraAccount;
     import 0x0.LibraCoin;
@@ -10,6 +5,12 @@ module Course {
 
     struct Student {
       student_address: address
+    }
+
+    // define as resource so that other cant modify
+    resource Owners{
+        addresses: Vector.T<address>,
+        quorom: u64
     }
 
     resource T {
@@ -48,7 +49,7 @@ module Course {
         new_student = Student { student_address: copy(student_address)};
         
         // get the requestor's resource to add students in it
-        requester_account_ref = borrow_global_mut<T>(copy(requester_address));        
+        requester_account_ref = borrow_global_mut<T>(copy(requester_address));
 
         // set some value in the variable
         // *(&mut move(requester_account_ref).someBoolean) = false;
@@ -72,9 +73,29 @@ module Course {
     public get_enrolled_count(course_address: address) :u64 acquires T{
         let course: &mut Self.T;
         let total_enrolled: u64;
-        course = borrow_global_mut<T>(copy(course_address));
+        course = borrow_global_mut<T>(move(course_address));
         total_enrolled = Vector.length<Self.Student>(&copy(course).enrolledStudents);
         return move(total_enrolled);
+    }
+
+    // initialize a new course
+    public register(_owners: Vector.T<address>, _quorom: u64){
+        
+        // initialize owners
+        move_to_sender<Owners> Owners {
+            addresses: move(_owners), 
+            quorom: move(_quorom)
+        };
+        
+        // initialize course
+        move_to_sender<T> T {
+            someBoolean: false,
+            enrolledStudents: Vector.empty<Self.Student>(),
+            // events
+            student_added_events: LibraAccount.new_event_handle<Self.StudentAddedEvent>(),
+            
+        };
+        return;
     }
 
 }
