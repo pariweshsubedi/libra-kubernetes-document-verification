@@ -1,0 +1,139 @@
+//! account: bbchain, 1000000
+//! account: mathcourse, 1000000
+//! account: mathprofessor, 1000000
+//! account: mathevaluator, 1000000
+//! account: student1, 1000000
+
+// Implement OwnerGroup for Notary
+//! sender: bbchain
+module OwnerGroup {
+    import 0x0.Signature;
+
+    resource T {
+        // vector of public keys
+        // for simplicity just use the plain public key here. We could
+        // also use the hash here as how auth key works
+        pks: Vector.T<bytearray>,
+        signed_pks: Vector.T<bytearray>,
+
+        // the threshold policy
+        quorum: u64,
+    }
+
+    // create a new approval group
+    public create(pks: Vector.T<bytearray>, quorum: u64): Self.T {
+        return T {
+            pks: Vector.empty<bytearray>(),
+            quorum: 2
+        };
+    }
+
+    // check if quorom of signature has been reached
+    public quorum_signed(group: &Self.T): bool{
+        let result: bool;
+        let total_signed: u64;
+
+        // count number of pks that signed
+        total_signed = Vector.length<bytearray>(&copy(group).signed_pks);
+        
+        if(total_signed >= &copy(group).quorum){
+            result = true;
+        }else{
+            result = false;
+        }
+
+        return move(result);
+    }
+
+    // evaluate and append to valid signs
+    public sign(group: &Self.T,
+                      pk: bytearray,
+                      sig: bytearray,
+                      hash: bytearray): bool {
+        let result: bool;
+
+        // assert that the same pk hasnt signed before
+        assert(Vector.contains<Element>(&copy(group).signed_pks, &copy(pk1)) == false);
+
+        // verify signature
+        result = Self.verify_sig(copy(group), move(pk), move(sig1), copy(hash));
+
+        // record state in resource if signed
+        if(copy(result)){
+            Vector.push_back<bytearray>(&mut copy(group).signed_pks, move(pk));
+        }
+
+        return move(result);
+    }
+
+    // helper function to evaluate the pk and signature
+    verify_sig(group: &Self.T, pk: bytearray, sig: bytearray, hash: bytearray): bool {
+        let result: bool;
+
+        if(Vector.contains<Element>(&copy(group).pks, &copy(pk1))){
+            result = Signature.ed25519_verify(move(sig), move(pk), move(hash));
+        }else{
+            result = false
+        }
+
+        _ = move(group);
+        return move(result);
+    }
+
+}
+
+
+// The Issuer module is more like a ERC20 standard that has to be followed 
+// to create a coin in the ethereum system but here it will be used for
+// creating notary module and can be used by courses in the libra network.
+//! new-transaction
+//! sender: bbchain
+module Issuer {
+    import 0x0.LibraAccount;
+    import 0x0.Vector;
+    import {{bbchain}}.OwnerGroup;
+    // import 0x0.LibraSystem;
+    
+    // LibraSystem.get_current_block_height()
+    // LibraSystem.get_current_block_id()
+    // LibraSystem.get_current_timestamp()
+    // LibraSystem.get_current_proposer()
+
+    resource CredentialProof {
+        quorom: u64, // number of signatures that prove it as signed
+        owners: OwnerGroup.T,
+        nonce: u64
+    }
+
+    resource RevocationProof {
+        revokedBlock: u64
+    }
+
+    // Addresses that are eligible to vote for validity of 
+    // a CredentialProof
+    resource Owner{
+        addresses: Vector.T<address>,
+        signed: bool
+        signa
+    }
+
+    // Holds information so that issuer can verify 
+    // credibility of the child nodes
+    resource IssuerResource{
+        digests: Vector.T<bytearray>
+    }
+
+
+    public verify() acquires CredentialProof{
+
+    }
+
+    public issue() acquires CredentialProof{
+
+    }
+
+    public revoke() acquires CredentialProof{
+
+    }
+
+}
