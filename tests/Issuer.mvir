@@ -20,6 +20,11 @@ module Issuer {
     // LibraSystem.get_current_timestamp()
     // LibraSystem.get_current_proposer()
 
+
+    //--------------------------------
+    // Structs
+    //--------------------------------
+
     struct Signature{
         owner: address,
         signed_digest: bytearray,
@@ -34,13 +39,18 @@ module Issuer {
         issued_to: address
     }
 
-    // subject and list of digest in the subject
-    struct DigestByCourse{
-        digest: Vector.T<bytearray>,
-        course: address
+    // Signed Credential Event
+    struct CredentialSigned {
+        student: address,
+        digest: bytearray,
+        signedBlock: u64
     }
 
+
+    //--------------------------------
     // Events
+    //--------------------------------
+    
     // Message Student Added Event
     struct StudentAddedEvent {
         // Address of the Student added
@@ -49,21 +59,17 @@ module Issuer {
         requester: address,
     }
 
-    // Signed Credential Event
-    struct CredentialSigned {
-        student: address,
-        digest: bytearray,
-        signedBlock: u64
-    }
+
+    //--------------------------------
+    // Resources
+    //--------------------------------
 
     // Holds information so that issuer can verify 
     // credibility of the child nodes
     resource IssuerResource{
-        issued_to: Vector.T<address>, // vector of addresses where the credential has been provided
-        revoked_from: Vector.T<address>, // vector of addresses where the credential has been revoked
         credentials : Vector.T<Self.CredentialProof>,
-        revocations : Vector.T<Self.RevocationProof>,
-        digests: Vector.T<Self.DigestByCourse>,
+        digests : Vector.T<bytearray>, // stores all signed digest
+        revoked_digests : Vector.T<bytearray>, // stores all revoked digests
         nonce: Self.Nonce
     }
 
@@ -76,7 +82,7 @@ module Issuer {
         quorom: u64, // number of signatures that prove it as signed
         owners: Vector.T<address>,
         nonce: u64,
-        signatures: Vector.T<Self.Signature>, // pks that signed the credential proof
+        owner_signatures: Vector.T<Self.Signature>, // pks that signed the credential proof
         signed: bool, // if all involved parties signed
         digest: bytearray,
         revoked: bool
@@ -87,6 +93,15 @@ module Issuer {
         credentialProof: Self.CredentialProof,
         reason: bytearray
     }
+
+    // issue credential: Registers the creation of a credential for a particular subject
+    // public registerCredential(subject: address, bytearray digest) acquires CredentialProof{
+    //     // verify that the credential with provided digest hasnt been revoked
+
+
+
+    //     return;
+    // }
 
     // // Checks if the credential was revoked based on it's digest
     // public getIsRevoked(credential_proof: &Self.CredentialProof) :bool{
@@ -118,18 +133,13 @@ module Issuer {
     //     return;
     // }
 
-    // issue credential: Registers the creation of a credential for a particular subject
-    // public registerCredential() acquires CredentialProof{
-         
-    //     return;
-    // }
-
 
     // Internal Methods
-    // getCredentialProofByDigest(digest: bytearray) :Self.CredentialProof{
+    // getCredentialProofByDigest(digest: bytearray) : &Self.CredentialProof{
     //     let credential_proof Self.CredentialProof;
 
     //     // TODO : get credential proof by digest
+        
 
     //     return move(credential_proof);
     // }
