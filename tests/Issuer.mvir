@@ -20,23 +20,14 @@ module Issuer {
     // LibraSystem.get_current_timestamp()
     // LibraSystem.get_current_proposer()
 
-
     //--------------------------------
     // Structs
     //--------------------------------
 
     struct Signature{
         owner: address,
-        signed_digest: bytearray,
         // TODO
         // replace owner address with PK
-    }
-
-    // map unique counter to issued address
-    // counter only increases
-    struct Nonce{
-        counter: u64,
-        issued_to: address
     }
 
     // Signed Credential Event
@@ -45,7 +36,6 @@ module Issuer {
         digest: bytearray,
         signedBlock: u64
     }
-
 
     //--------------------------------
     // Events
@@ -59,7 +49,6 @@ module Issuer {
         requester: address,
     }
 
-
     //--------------------------------
     // Resources
     //--------------------------------
@@ -67,81 +56,96 @@ module Issuer {
     // Holds information so that issuer can verify 
     // credibility of the child nodes
     resource IssuerResource{
-        credentials : Vector.T<Self.CredentialProof>,
+        quorom: u64, // number of signatures that prove it as signed
+        owners: Vector.T<address>,
+        subjects : Vector.T<address>, // stores all address that the Issuer has interacted with
         digests : Vector.T<bytearray>, // stores all signed digest
         revoked_digests : Vector.T<bytearray>, // stores all revoked digests
-        nonce: Self.Nonce
+        nonce: u64,
+        credential_proofs: Vector.T<Self.CredentialProof>
     }
 
     resource Events{
         credential_signed: LibraAccount.EventHandle<Self.CredentialSigned>
     }
 
-    // // will be stored with the subject
+    // will be stored with the subject(student)
     resource CredentialProof {
-        quorom: u64, // number of signatures that prove it as signed
-        owners: Vector.T<address>,
-        nonce: u64,
-        owner_signatures: Vector.T<Self.Signature>, // pks that signed the credential proof
+        owner_signatures: Vector.T<Self.Signature>, // owners that signed the credential proof
         signed: bool, // if all involved parties signed
         digest: bytearray,
-        revoked: bool
+        revoked: bool,
+        nonce: u64, // counter from issuer
+        subject: address,
     }
 
-    // will be stored with the subject
+    // will be stored with the subject(student)
     resource RevocationProof {
         credentialProof: Self.CredentialProof,
-        reason: bytearray
+        reason: bytearray,
+        nonce: u64 // counter from issuer
     }
 
-    // issue credential: Registers the creation of a credential for a particular subject
-    // public registerCredential(subject: address, bytearray digest) acquires CredentialProof{
-    //     // verify that the credential with provided digest hasnt been revoked
+    //--------------------------------
+    // Methods
+    //--------------------------------
+
+    // issue credential : Registers the creation of a credential for a particular subject
+    // invoker : course
+    public registerCredential(subject: address, digest: bytearray) acquires IssuerResource {
+        let sender_address: address;
+        let requester_issuer_res_ref: &mut Self.IssuerResource;
+        let new_credential_proof: Self.CredentialProof;
+        let new_nonce: u64;
+
+        sender_address = get_txn_sender();
+
+        // Issuer shouldn't hold any credential or revocation proofs
+        assert(!exists<CredentialProof>(copy(sender_address)), 3);
+        assert(!exists<RevocationProof>(copy(sender_address)), 3);
+
+        requester_issuer_res_ref = borrow_global_mut<IssuerResource>(copy(sender_address));
+
+        // verify that the credential with provided digest hasnt been revoked and hasnt already been registered
+        assert(!Vector.contains<bytearray>(&copy(requester_issuer_res_ref).revoked_digests, &digest), 1);
+        assert(!Vector.contains<bytearray>(&copy(requester_issuer_res_ref).digests, &digest), 1);
+
+        // Increment Nonce on Issuer
+        new_nonce = *&copy(requester_issuer_res_ref).nonce + 1;
+        *&mut copy(requester_issuer_res_ref).nonce = copy(new_nonce);
+
+        // Issuing Credential
+        // Two ways to handle this
+        // 1) credential wallet is already created for a student and move the credential proof to the wallet. 
+        // 2) store credential proof with issuer and move it to student after the student signs the credential proof
+
+        // Implementation 2:
+        // add new credential proof to Issuer resource
+        Vector.push_back<Self.CredentialProof>(
+            &mut copy(requester_issuer_res_ref).credential_proofs, 
+            Self.createCredentialProof(move(subject), move(digest), move(new_nonce))
+        );
+
+        // Emit Event
+        return;
+    }
 
 
-
-    //     return;
-    // }
-
-    // // Checks if the credential was revoked based on it's digest
-    // public getIsRevoked(credential_proof: &Self.CredentialProof) :bool{
-    //     return *& move(credential_proof).revoked;
-    // }
-
-    // Verify if a given credential (i.e. represented by it's digest) corresponds to the aggregation of all stored credentials of a particular subject
-    // public verifyCredential(digest: bytearray) acquires CredentialProof{
-        
-    //     // get credential associated with digest
-    //     let credential_proof Self.CredentialProof;
-    //     credential_proof = Self.getCredentialProofByDigest(move(digest));
-
-        
-    //     assert(*& move(credential_proof).revoked == false);
-
-    //    // Emit Event
-
-    //     return;
-    // }
-
-    // // Revokes a credential for a given reason based on it's digest
-    // public revokeCredential() acquires CredentialProof{
-    //     return;
-    // }
-
-    // // Confirms the agreement about the credential between the subject and the issuer
-    // public confirmCredential() acquires CredentialProof{
-    //     return;
-    // }
-
-
+    //--------------------------------
     // Internal Methods
-    // getCredentialProofByDigest(digest: bytearray) : &Self.CredentialProof{
-    //     let credential_proof Self.CredentialProof;
+    //--------------------------------
 
-    //     // TODO : get credential proof by digest
-        
-
-    //     return move(credential_proof);
-    // }
+    // Creates clean credential proof
+    createCredentialProof(subject: address, digest: bytearray, nonce: u64): Self.CredentialProof{
+        return CredentialProof {
+            owner_signatures: Vector.empty<Self.Signature>(),
+            signed: false,
+            digest: move(digest),
+            revoked: false,
+            nonce: move(nonce),
+            subject: move(subject)
+        };
+    }
+    
 
 }
