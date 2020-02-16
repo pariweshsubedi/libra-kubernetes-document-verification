@@ -4,94 +4,15 @@
 //! account: mathevaluator, 1000000
 //! account: student1, 1000000
 
-// Implement OwnerGroup for Notary
+//! new-transaction
 //! sender: bbchain
-module OwnerGroup {
-    import 0x0.Signature;
-
-    resource T {
-        // vector of public keys
-        // for simplicity just use the plain public key here. We could
-        // also use the hash here as how auth key works
-        pks: Vector.T<bytearray>,
-        signed_pks: Vector.T<bytearray>,
-
-        // the threshold policy
-        quorum: u64,
-    }
-
-    // create a new approval group
-    public create(pks: Vector.T<bytearray>, quorum: u64): Self.T {
-        return T {
-            pks: Vector.empty<bytearray>(),
-            quorum: 2
-        };
-    }
-
-    // check if quorom of signature has been reached
-    public quorum_signed(group: &Self.T): bool{
-        let result: bool;
-        let total_signed: u64;
-
-        // count number of pks that signed
-        total_signed = Vector.length<bytearray>(&copy(group).signed_pks);
-        
-        if(total_signed >= &copy(group).quorum){
-            result = true;
-        }else{
-            result = false;
-        }
-
-        return move(result);
-    }
-
-    // evaluate and append to valid signs
-    public sign(group: &Self.T,
-                      pk: bytearray,
-                      sig: bytearray,
-                      hash: bytearray): bool {
-        let result: bool;
-
-        // assert that the same pk hasnt signed before
-        assert(Vector.contains<Element>(&copy(group).signed_pks, &copy(pk1)) == false);
-
-        // verify signature
-        result = Self.verify_sig(copy(group), move(pk), move(sig1), copy(hash));
-
-        // record state in resource if signed
-        if(copy(result)){
-            Vector.push_back<bytearray>(&mut copy(group).signed_pks, move(pk));
-        }
-
-        return move(result);
-    }
-
-    // helper function to evaluate the pk and signature
-    verify_sig(group: &Self.T, pk: bytearray, sig: bytearray, hash: bytearray): bool {
-        let result: bool;
-
-        if(Vector.contains<Element>(&copy(group).pks, &copy(pk1))){
-            result = Signature.ed25519_verify(move(sig), move(pk), move(hash));
-        }else{
-            result = false
-        }
-
-        _ = move(group);
-        return move(result);
-    }
-
-}
-
-
 // The Issuer module is more like a ERC20 standard that has to be followed 
 // to create a coin in the ethereum system but here it will be used for
 // creating notary module and can be used by courses in the libra network.
-//! new-transaction
-//! sender: bbchain
 module Issuer {
     import 0x0.LibraAccount;
     import 0x0.Vector;
-    import {{bbchain}}.OwnerGroup;
+    // import {{bbchain}}.OwnerGroup;
     // import 0x0.LibraSystem;
     
     // LibraSystem.get_current_block_height()
@@ -99,41 +20,118 @@ module Issuer {
     // LibraSystem.get_current_timestamp()
     // LibraSystem.get_current_proposer()
 
-    resource CredentialProof {
-        quorom: u64, // number of signatures that prove it as signed
-        owners: OwnerGroup.T,
-        nonce: u64
+    struct Signature{
+        owner: address,
+        signed_digest: bytearray,
+        // TODO
+        // replace owner address with PK
     }
 
-    resource RevocationProof {
-        revokedBlock: u64
+    // map unique counter to issued address
+    // counter only increases
+    struct Nonce{
+        counter: u64,
+        issued_to: address
     }
 
-    // Addresses that are eligible to vote for validity of 
-    // a CredentialProof
-    resource Owner{
-        addresses: Vector.T<address>,
-        signed: bool
-        signa
+    // subject and list of digest in the subject
+    struct DigestByCourse{
+        digest: Vector.T<bytearray>,
+        course: address
+    }
+
+    // Events
+    // Message Student Added Event
+    struct StudentAddedEvent {
+        // Address of the Student added
+        student: address,
+        // Address of the requester who wants to add student
+        requester: address,
+    }
+
+    // Signed Credential Event
+    struct CredentialSigned {
+        student: address,
+        digest: bytearray,
+        signedBlock: u64
     }
 
     // Holds information so that issuer can verify 
     // credibility of the child nodes
     resource IssuerResource{
-        digests: Vector.T<bytearray>
+        issued_to: Vector.T<address>, // vector of addresses where the credential has been provided
+        revoked_from: Vector.T<address>, // vector of addresses where the credential has been revoked
+        credentials : Vector.T<Self.CredentialProof>,
+        revocations : Vector.T<Self.RevocationProof>,
+        digests: Vector.T<Self.DigestByCourse>,
+        nonce: Self.Nonce
     }
 
-
-    public verify() acquires CredentialProof{
-
+    resource Events{
+        credential_signed: LibraAccount.EventHandle<Self.CredentialSigned>
     }
 
-    public issue() acquires CredentialProof{
-
+    // // will be stored with the subject
+    resource CredentialProof {
+        quorom: u64, // number of signatures that prove it as signed
+        owners: Vector.T<address>,
+        nonce: u64,
+        signatures: Vector.T<Self.Signature>, // pks that signed the credential proof
+        signed: bool, // if all involved parties signed
+        digest: bytearray,
+        revoked: bool
     }
 
-    public revoke() acquires CredentialProof{
-
+    // will be stored with the subject
+    resource RevocationProof {
+        credentialProof: Self.CredentialProof,
+        reason: bytearray
     }
+
+    // // Checks if the credential was revoked based on it's digest
+    // public getIsRevoked(credential_proof: &Self.CredentialProof) :bool{
+    //     return *& move(credential_proof).revoked;
+    // }
+
+    // Verify if a given credential (i.e. represented by it's digest) corresponds to the aggregation of all stored credentials of a particular subject
+    // public verifyCredential(digest: bytearray) acquires CredentialProof{
+        
+    //     // get credential associated with digest
+    //     let credential_proof Self.CredentialProof;
+    //     credential_proof = Self.getCredentialProofByDigest(move(digest));
+
+        
+    //     assert(*& move(credential_proof).revoked == false);
+
+    //    // Emit Event
+
+    //     return;
+    // }
+
+    // // Revokes a credential for a given reason based on it's digest
+    // public revokeCredential() acquires CredentialProof{
+    //     return;
+    // }
+
+    // // Confirms the agreement about the credential between the subject and the issuer
+    // public confirmCredential() acquires CredentialProof{
+    //     return;
+    // }
+
+    // issue credential: Registers the creation of a credential for a particular subject
+    // public registerCredential() acquires CredentialProof{
+         
+    //     return;
+    // }
+
+
+    // Internal Methods
+    // getCredentialProofByDigest(digest: bytearray) :Self.CredentialProof{
+    //     let credential_proof Self.CredentialProof;
+
+    //     // TODO : get credential proof by digest
+
+    //     return move(credential_proof);
+    // }
 
 }

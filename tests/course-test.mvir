@@ -9,6 +9,12 @@ module Course {
     import 0x0.LibraAccount;
     import 0x0.LibraCoin;
     import 0x0.Vector;
+    // import 0x0.LibraSystem;
+    
+    // LibraSystem.get_current_block_height()
+    // LibraSystem.get_current_block_id()
+    // LibraSystem.get_current_timestamp()
+    // LibraSystem.get_current_proposer()
 
     struct Student {
       student_address: address
@@ -142,4 +148,6 @@ main(student: address) {
     assert(move(total_enrolled) == 1, 42);
     return;
 }
+
+// check: StudentAddedEvent
 
