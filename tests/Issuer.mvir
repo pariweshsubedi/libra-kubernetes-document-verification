@@ -12,8 +12,10 @@
 module Issuer {
     import 0x0.LibraAccount;
     import 0x0.Vector;
+    import 0x0.LibraSystem;
+    import 0x0.AddressUtil;
     // import {{bbchain}}.OwnerGroup;
-    // import 0x0.LibraSystem;
+    
     
     // LibraSystem.get_current_block_height()
     // LibraSystem.get_current_block_id()
@@ -30,13 +32,6 @@ module Issuer {
         // replace owner address with PK
     }
 
-    // Signed Credential Event
-    struct CredentialSigned {
-        student: address,
-        digest: bytearray,
-        signedBlock: u64
-    }
-
     //--------------------------------
     // Events
     //--------------------------------
@@ -49,6 +44,13 @@ module Issuer {
         requester: address,
     }
 
+    // Signed Credential Event
+    struct CredentialSigned {
+        student: address,
+        digest: bytearray,
+        signedBlockId: bytearray
+    }
+
     //--------------------------------
     // Resources
     //--------------------------------
@@ -59,10 +61,13 @@ module Issuer {
         quorom: u64, // number of signatures that prove it as signed
         owners: Vector.T<address>,
         subjects : Vector.T<address>, // stores all address that the Issuer has interacted with
-        digests : Vector.T<bytearray>, // stores all signed digest
+        digests : Vector.T<bytearray>, // stores signed digest signed by all parties -> solves the problem of exposing all of students history
         revoked_digests : Vector.T<bytearray>, // stores all revoked digests
         nonce: u64,
-        credential_proofs: Vector.T<Self.CredentialProof>
+        credential_proofs: Vector.T<Self.CredentialProof>, // stores credential proof to be signed by all parties
+
+        // Events
+        credential_signed_events: LibraAccount.EventHandle<Self.CredentialSigned>,
     }
 
     resource Events{
@@ -111,6 +116,7 @@ module Issuer {
         assert(!Vector.contains<bytearray>(&copy(requester_issuer_res_ref).digests, &digest), 1);
 
         // Increment Nonce on Issuer
+        // TODO - update nonce logic
         new_nonce = *&copy(requester_issuer_res_ref).nonce + 1;
         *&mut copy(requester_issuer_res_ref).nonce = copy(new_nonce);
 
@@ -130,10 +136,96 @@ module Issuer {
         return;
     }
 
+    // Confirms the agreement about the credential between the subject and the issuer
+    // after the owners have signed, now the student can sign a credential proof
+    // invoker : student
+    // @params
+    // issuer : course
+    // digest : bytearray
+    public confirmCredential(issuer:address, digest: bytearray) acquires IssuerResource{
+        let issuer_res_ref: &mut Self.IssuerResource;
+        let sender_address: address;
+        let cp_index:u64;
+        let cp_exists:bool;
+        let credential_proof_mut_ref: &mut Self.CredentialProof;
+        let total_owner_signatures: u64;
+        let new_credential_proof: Self.CredentialProof;
+
+        sender_address = get_txn_sender();
+        issuer_res_ref = borrow_global_mut<IssuerResource>(copy(issuer));
+
+        // assert the digest hasnt been revoked
+        assert(!Vector.contains<bytearray>(&copy(issuer_res_ref).revoked_digests, &digest), 1);
+
+        cp_index, cp_exists = Self.getCredentialProofIndexByDigest(&copy(issuer_res_ref).credential_proofs, &digest);
+
+        // assert that the credential proof exists and can be signed
+        assert(copy(cp_exists), 42);
+        
+        credential_proof_mut_ref = Vector.borrow_mut<Self.CredentialProof>(&mut copy(issuer_res_ref).credential_proofs, copy(cp_index));
+        total_owner_signatures = Vector.length<Self.Signature>(&copy(credential_proof_mut_ref).owner_signatures);
+
+        // assert that the credential proof belongs the the message sender
+        assert(copy(sender_address) == *&copy(credential_proof_mut_ref).subject, 42);
+        // assert that the number of signatures in the credential proof satisfies quorom constraint
+        assert(copy(total_owner_signatures) >= *&copy(issuer_res_ref).quorom, 42);
+
+
+        // sign the credential proof
+        // - set signed flag to true
+        // - move the digest to the issuer resource (digests) 
+        // - remove credential proof from issuer
+        // - move credential proof to student 
+        *&mut move(credential_proof_mut_ref).signed = true;
+        Vector.push_back<bytearray>(
+            &mut copy(issuer_res_ref).digests, 
+            copy(digest)
+        );
+
+        // remove from vector using remove_unstable because ordering doesnt matter
+        new_credential_proof = Vector.remove_unstable<Self.CredentialProof>(&mut copy(issuer_res_ref).credential_proofs, copy(cp_index));
+
+        // move credential to student (invoker)
+        move_to_sender<CredentialProof>(move(new_credential_proof));
+
+        //Emit Event
+        LibraAccount.emit_event<Self.CredentialSigned>(
+            &mut copy(issuer_res_ref).credential_signed_events,
+            CredentialSigned {
+                student: move(sender_address),
+                digest: move(digest),
+                signedBlockId: LibraSystem.get_current_block_id()
+            },
+        );
+
+        return;
+    }
+
 
     //--------------------------------
     // Internal Methods
     //--------------------------------
+
+    getCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray): u64 * bool{
+        let len: u64;
+        let i: u64;
+        let credential_proof_ref: &Self.CredentialProof;
+
+        i = 0;
+        len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
+
+        while (copy(i) < copy(len)) {
+            credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
+            
+            if (*copy(digest) == *&copy(credential_proof_ref).digest) {
+
+                return copy(i), true;
+            }
+            i = move(i) + 1;
+        }
+
+        return 0, false;
+    }
 
     // Creates clean credential proof
     createCredentialProof(subject: address, digest: bytearray, nonce: u64): Self.CredentialProof{
