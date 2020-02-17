@@ -32,6 +32,12 @@ module Issuer {
         // replace owner address with PK
     }
 
+    // digest address pair
+    struct DigestAddressPair{
+        digest: bytearray,
+        subject: address
+    }
+
     //--------------------------------
     // Events
     //--------------------------------
@@ -65,6 +71,7 @@ module Issuer {
         revoked_digests : Vector.T<bytearray>, // stores all revoked digests
         nonce: u64,
         credential_proofs: Vector.T<Self.CredentialProof>, // stores credential proof to be signed by all parties
+        digest_address_pairs: Vector.T<Self.DigestAddressPair>, // stores digest-address pair to access resource allocated to the address
 
         // Events
         credential_signed_events: LibraAccount.EventHandle<Self.CredentialSigned>,
@@ -129,7 +136,15 @@ module Issuer {
         // add new credential proof to Issuer resource
         Vector.push_back<Self.CredentialProof>(
             &mut copy(requester_issuer_res_ref).credential_proofs, 
-            Self.createCredentialProof(move(subject), move(digest), move(new_nonce))
+            Self.createCredentialProof(copy(subject), copy(digest), move(new_nonce))
+        );
+
+        Vector.push_back<Self.DigestAddressPair>(
+            &mut copy(requester_issuer_res_ref).digest_address_pairs,
+            DigestAddressPair{
+                digest : move(digest),
+                subject: move(subject)
+            }
         );
 
         // Emit Event
@@ -201,10 +216,32 @@ module Issuer {
         return;
     }
 
+    // bytes32 digest, bytes32 reason) external; // Revokes a credential for a given reason based on it's digest
+    // invoker : issuer
+    // public revokeCredential(digest: bytearray, reason: bytearray) acquires IssuerResource{
+    //     let sender_address: address;
+    //     let issuer_res_ref: &mut Self.IssuerResource;
+
+    //     sender_address = get_txn_sender();
+    //     issuer_res_ref = borrow_global_mut<IssuerResource>(copy(sender_address));
+
+    //     // get index of the digest in issuer resource
+
+    //     // remove the digest in the index
+
+    //     // loop through digest,student address struct
+
+    //     return;
+    // }
+
 
     //--------------------------------
     // Internal Methods
     //--------------------------------
+
+    // getResourceIndex(){
+
+    // }
 
     getCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray): u64 * bool{
         let len: u64;
@@ -218,7 +255,6 @@ module Issuer {
             credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
             
             if (*copy(digest) == *&copy(credential_proof_ref).digest) {
-
                 return copy(i), true;
             }
             i = move(i) + 1;
