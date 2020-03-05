@@ -118,7 +118,7 @@ module Issuer {
 
         requester_issuer_res_ref = borrow_global_mut<IssuerResource>(copy(sender_address));
 
-        // verify that the credential with provided digest hasnt been revoked and hasnt already been registered
+        // verify that the credential with provided digest hasnt been revoked and hasnt already been registered already
         assert(!Vector.contains<bytearray>(&copy(requester_issuer_res_ref).revoked_digests, &digest), 1);
         assert(!Vector.contains<bytearray>(&copy(requester_issuer_res_ref).digests, &digest), 1);
 
@@ -198,7 +198,7 @@ module Issuer {
         );
 
         // remove from vector using remove_unstable because ordering doesnt matter
-        new_credential_proof = Vector.remove_unstable<Self.CredentialProof>(&mut copy(issuer_res_ref).credential_proofs, copy(cp_index));
+        new_credential_proof = Vector.remove<Self.CredentialProof>(&mut copy(issuer_res_ref).credential_proofs, copy(cp_index));
 
         // move credential to student (invoker)
         move_to_sender<CredentialProof>(move(new_credential_proof));
@@ -244,7 +244,7 @@ module Issuer {
         // remove digest from digests vector and move it to revoked
         digest_index, digest_exists = Self.getDigestIndex(&copy(issuer_res_ref).digests, &digest);
         assert(copy(digest_exists), 42);
-        saved_digest = Vector.remove_unstable<bytearray>(&mut copy(issuer_res_ref).digests, copy(digest_index));
+        saved_digest = Vector.remove<bytearray>(&mut copy(issuer_res_ref).digests, copy(digest_index));
 
         // add the digest to revoked vector
         Vector.push_back<bytearray>(
