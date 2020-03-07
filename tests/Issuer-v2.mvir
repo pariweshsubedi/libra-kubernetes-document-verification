@@ -84,21 +84,34 @@ module Issuer {
 }
 
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
+// Test that a university can register
+//! new-transaction
+//! sender: university
 
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let issuerResourceExists: bool;
+    // check if issuer resource exists
+    issuerResourceExists = Issuer.isIssuer({{university}});
+    assert(move(issuerResourceExists) == false, 42);
+    return;
+}
 
-// main() {
-//     let issuerResourceExists: bool;
-//     // register course
-//     // TODO : create course with multiple owners
-//     Issuer.newIssueResource(Vector.empty<address>());
+// Test that a university can register
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let sender: address;
+    // register course
+    Issuer.registerIssuer(Vector.empty<address>());
     
-//     // check if issuer resource exists
-//     is_issuer = Issuer.isIssuer({{university}});
-//     assert(move(issuerResourceExists), 42);
-//     return;
-// }
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.isIssuer(copy(sender));
+    assert(move(exists1), 42);
+    return;
+}
