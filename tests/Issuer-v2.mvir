@@ -15,6 +15,16 @@ module Issuer {
     import 0x0.Vector;
     import 0x0.LibraSystem;
     import 0x0.AddressUtil;
+    
+    //--------------------------------
+    // Structs
+    //--------------------------------
+    // represents course work / test
+    struct Fact{
+        digest : bytearray,
+        signed : bool,
+        revoked : bool
+    }
 
     //--------------------------------
     // Resources
@@ -36,6 +46,7 @@ module Issuer {
         valid : bool,
         revoked : bool,
         digest : bytearray,
+        facts: Vector.T<Self.Fact>,
     }
 
     resource RevocationProof {
@@ -45,7 +56,7 @@ module Issuer {
     }
 
     // stored with holder
-    resource CredentialWallet{
+    resource CredentialAccount{
         wallet_issuer : address,
         holder : address,
         credential_proofs : Vector.T<Self.CredentialProof>   
@@ -69,34 +80,23 @@ module Issuer {
         return;
     }
 
-    // adds holder to issuer resource
-    public addHolder(_holder: address, _issuer: address) acquires IssuerResource{
-        let requester_account_ref: &mut Self.IssuerResource;
-        assert(Self.hasIssuerResource(copy(_issuer)), 42); // verify issuer
-
-        // update issuer resource and add new holder
-        requester_account_ref = borrow_global_mut<IssuerResource>(copy(_issuer));
-        Vector.push_back<address>(&mut copy(requester_account_ref).holders, copy(_holder));
-        return;
-    }
-
-    // student use this to register signup with Issuer
-    public signupHolder(_issuer: address) acquires IssuerResource{
+    // student use this to register register with Issuer
+    public registerHolder(_issuer: address) acquires IssuerResource{
         assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
-        assert(!Self.hasCredentialWallet(get_txn_sender()), 42); // shouldn't hold a credential wallet
+        assert(!Self.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential wallet
         // TODO : check that the issuer has issuer resource
 
         Self.addHolder(get_txn_sender(), copy(_issuer));
         
-        move_to_sender<CredentialWallet>(
-            Self.newCredentialWallet(move(_issuer), get_txn_sender())
+        move_to_sender<CredentialAccount>(
+            Self.newCredentialAccount(move(_issuer), get_txn_sender())
         );
         return;
     }
 
-    public hasCredentialWallet(addr: address): bool {
+    public hasCredentialAccount(addr: address): bool {
         let has: bool;
-        has = exists<CredentialWallet>(move(addr));
+        has = exists<CredentialAccount>(move(addr));
         return move(has);
     }
 
@@ -119,9 +119,20 @@ module Issuer {
         return;
     }
 
+    // adds holder to issuer resource
+    addHolder(_holder: address, _issuer: address) acquires IssuerResource{
+        let requester_account_ref: &mut Self.IssuerResource;
+        assert(Self.hasIssuerResource(copy(_issuer)), 42); // verify issuer
 
-    newCredentialWallet(_issuer: address, _holder: address): Self.CredentialWallet {
-        return  CredentialWallet {
+        // update issuer resource and add new holder
+        requester_account_ref = borrow_global_mut<IssuerResource>(copy(_issuer));
+        Vector.push_back<address>(&mut copy(requester_account_ref).holders, copy(_holder));
+        return;
+    }
+
+
+    newCredentialAccount(_issuer: address, _holder: address): Self.CredentialAccount {
+        return  CredentialAccount {
             wallet_issuer : move(_issuer),
             holder : move(_holder),
             credential_proofs : Vector.empty<Self.CredentialProof>()
@@ -199,7 +210,7 @@ main() {
     return;
 }
 
-// Test that a holder(student) can signup in a university
+// Test that a holder(student) can register in a university
 //! new-transaction
 //! sender: student1
 import {{bbchain}}.Issuer;
@@ -207,11 +218,11 @@ import 0x0.Vector;
 main() {
     let exists1: bool;
     // check if issuer resource exists
-    exists1 = Issuer.hasCredentialWallet(get_txn_sender());
+    exists1 = Issuer.hasCredentialAccount(get_txn_sender());
     assert(move(exists1) == false, 42);
 
-    //signup
-    Issuer.signupHolder({{university}});
+    //register
+    Issuer.registerHolder({{university}});
     
     return;
 }
