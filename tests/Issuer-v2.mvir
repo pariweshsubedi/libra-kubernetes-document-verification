@@ -46,7 +46,7 @@ module Issuer {
 
     // stored with holder
     resource CredentialWallet{
-        issuer : address,
+        wallet_issuer : address,
         holder : address,
         credential_proofs : Vector.T<Self.CredentialProof>   
     }
@@ -69,29 +69,49 @@ module Issuer {
         return;
     }
 
-    // // student use this to register signup with Issuer
-    // public signupHolder(_issuer: address) {
-    //     assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
-    //     assert(!Self.hasCredentialWallet(get_txn_sender()), 42);
-    //     move_to_sender<CredentialWallet>(
-    //         CredentialWallet {
-    //         issuer : move(_issuer),
-    //         holder : move(_holder),
-    //         credential_proofs : Vector.T<Self.CredentialProof>   
-    //     });
-    //     return;
-    // }
+    // adds holder to issuer resource
+    public addHolder(_holder: address, _issuer: address) acquires IssuerResource{
+        let requester_account_ref: &mut Self.IssuerResource;
+        assert(Self.hasIssuerResource(get_txn_sender()), 42); // only issuer can run this op.
 
-    // public hasCredentialWallet(addr: address): bool {
-    //     let has: bool;
-    //     has = exists<CredentialWallet>(move(addr));
-    //     return move(has);
-    // }
+        // update issuer resource and add new holder
+        requester_account_ref = borrow_global_mut<IssuerResource>(copy(_issuer));
+        Vector.push_back<address>(&mut copy(requester_account_ref).holders, get_txn_sender());
+        return;
+    }
+
+    // student use this to register signup with Issuer
+    public signupHolder(_issuer: address) acquires IssuerResource{
+        assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
+        assert(!Self.hasCredentialWallet(get_txn_sender()), 42); // shouldn't hold a credential wallet
+        // TODO : check that the issuer has issuer resource
+
+        Self.addHolder(get_txn_sender(), copy(_issuer));
+        
+        move_to_sender<CredentialWallet>(
+            Self.newCredentialWallet(move(_issuer), get_txn_sender())
+        );
+        return;
+    }
+
+    public hasCredentialWallet(addr: address): bool {
+        let has: bool;
+        has = exists<CredentialWallet>(move(addr));
+        return move(has);
+    }
 
     public hasIssuerResource(addr: address): bool {
         let issuerResourceExists: bool;
         issuerResourceExists = exists<IssuerResource>(move(addr));
         return move(issuerResourceExists);
+    }
+
+    newCredentialWallet(_issuer: address, _holder: address): Self.CredentialWallet {
+        return  CredentialWallet {
+            wallet_issuer : move(_issuer),
+            holder : move(_holder),
+            credential_proofs : Vector.empty<Self.CredentialProof>()
+        };
     }
 
     newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
@@ -108,34 +128,50 @@ module Issuer {
 }
 
 
-// Test that a university can register
-//! new-transaction
-//! sender: university
+// // Test that a university can register
+// //! new-transaction
+// //! sender: university
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// main() {
+//     let issuerResourceExists: bool;
+//     // check if issuer resource exists
+//     issuerResourceExists = Issuer.hasIssuerResource({{university}});
+//     assert(move(issuerResourceExists) == false, 42);
+//     return;
+// }
 
-import {{bbchain}}.Issuer;
-import 0x0.Vector;
-main() {
-    let issuerResourceExists: bool;
-    // check if issuer resource exists
-    issuerResourceExists = Issuer.hasIssuerResource({{university}});
-    assert(move(issuerResourceExists) == false, 42);
-    return;
-}
-
-// Test that a university can register
-//! new-transaction
-//! sender: university
-import {{bbchain}}.Issuer;
-import 0x0.Vector;
-main() {
-    let exists1: bool;
-    let sender: address;
-    // register issuer with no parent
-    Issuer.registerIssuer(Vector.empty<address>(), 0x00);
+// // Test that a university can register
+// //! new-transaction
+// //! sender: university
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// main() {
+//     let exists1: bool;
+//     let sender: address;
+//     // register issuer with no parent
+//     Issuer.registerIssuer(Vector.empty<address>(), 0x00);
     
-    // check if issuer resource exists
-    sender = get_txn_sender();
-    exists1 = Issuer.hasIssuerResource(copy(sender));
-    assert(move(exists1), 42);
-    return;
-}
+//     // check if issuer resource exists
+//     sender = get_txn_sender();
+//     exists1 = Issuer.hasIssuerResource(copy(sender));
+//     assert(move(exists1), 42);
+//     return;
+// }
+
+// // Test that a holder(student) can signup in a university
+// //! new-transaction
+// //! sender: student1
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// main() {
+//     let exists1: bool;
+//     // check if issuer resource exists
+//     exists1 = Issuer.hasCredentialWallet(get_txn_sender());
+//     assert(move(exists1) == false, 42);
+
+//     //signup
+//     Issuer.signupHolder({{university}});
+    
+//     return;
+// }

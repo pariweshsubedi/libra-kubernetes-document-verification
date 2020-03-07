@@ -35,7 +35,7 @@ module Issuer {
     // digest address pair
     struct DigestAddressPair{
         digest: bytearray,
-        subject: address
+        holder: address
     }
 
     //--------------------------------
@@ -66,7 +66,7 @@ module Issuer {
     resource IssuerResource{
         quorom: u64, // number of signatures that prove it as signed
         owners: Vector.T<address>,
-        subjects : Vector.T<address>, // stores all address that the Issuer has interacted with
+        holders : Vector.T<address>, // stores all address that the Issuer has interacted with
         digests : Vector.T<bytearray>, // stores signed digest signed by all parties -> solves the problem of exposing all of students history
         revoked_digests : Vector.T<bytearray>, // stores all revoked digests
         nonce: u64,
@@ -81,17 +81,17 @@ module Issuer {
         credential_signed: LibraAccount.EventHandle<Self.CredentialSigned>
     }
 
-    // will be stored with the subject(student)
+    // will be stored with the holder(student)
     resource CredentialProof {
         owner_signatures: Vector.T<Self.Signature>, // owners that signed the credential proof
         signed: bool, // if all involved parties signed
         digest: bytearray,
         revoked: bool,
         nonce: u64, // counter from issuer
-        subject: address,
+        holder: address,
     }
 
-    // will be stored with the subject(student)
+    // will be stored with the holder(student)
     resource RevocationProof {
         credentialProof: Self.CredentialProof,
         reason: bytearray,
@@ -102,9 +102,9 @@ module Issuer {
     // Methods
     //--------------------------------
 
-    // issue credential : Registers the creation of a credential for a particular subject
+    // issue credential : Registers the creation of a credential for a particular holder
     // invoker : course
-    public registerCredential(subject: address, digest: bytearray) acquires IssuerResource {
+    public registerCredential(holder: address, digest: bytearray) acquires IssuerResource {
         let sender_address: address;
         let requester_issuer_res_ref: &mut Self.IssuerResource;
         let new_credential_proof: Self.CredentialProof;
@@ -136,14 +136,14 @@ module Issuer {
         // add new credential proof to Issuer resource
         Vector.push_back<Self.CredentialProof>(
             &mut copy(requester_issuer_res_ref).credential_proofs, 
-            Self.createCredentialProof(copy(subject), copy(digest), move(new_nonce))
+            Self.createCredentialProof(copy(holder), copy(digest), move(new_nonce))
         );
 
         Vector.push_back<Self.DigestAddressPair>(
             &mut copy(requester_issuer_res_ref).digest_address_pairs,
             DigestAddressPair{
                 digest : move(digest),
-                subject: move(subject)
+                holder : move(holder)
             }
         );
 
@@ -151,7 +151,7 @@ module Issuer {
         return;
     }
 
-    // Confirms the agreement about the credential between the subject and the issuer
+    // Confirms the agreement about the credential between the holder and the issuer
     // after the owners have signed, now the student can sign a credential proof
     // invoker : student
     // @params
@@ -181,7 +181,7 @@ module Issuer {
         total_owner_signatures = Vector.length<Self.Signature>(&copy(credential_proof_mut_ref).owner_signatures);
 
         // assert that the credential proof belongs the the message sender
-        assert(copy(sender_address) == *&copy(credential_proof_mut_ref).subject, 42);
+        assert(copy(sender_address) == *&copy(credential_proof_mut_ref).holder, 42);
         // assert that the number of signatures in the credential proof satisfies quorom constraint
         assert(copy(total_owner_signatures) >= *&copy(issuer_res_ref).quorom, 42);
 
@@ -220,7 +220,7 @@ module Issuer {
     // invoker : issuer
     public revokeCredential(digest: bytearray, reason: bytearray) acquires IssuerResource, CredentialProof{
         let sender_address: address;
-        let subject_address: address;
+        let holder_address: address;
         let issuer_res_ref: &mut Self.IssuerResource;
         let pair_exists: bool;
         let pair_index: u64;
@@ -238,7 +238,7 @@ module Issuer {
         assert(Vector.contains<bytearray>(&copy(issuer_res_ref).digests, &digest), 1);
 
         // get index of the digest in issuer resource
-        pair_index, pair_exists = Self.getDigestSubjectPairIndexByDigest(&copy(issuer_res_ref).digest_address_pairs, &digest);
+        pair_index, pair_exists = Self.getDigestHolderPairIndexByDigest(&copy(issuer_res_ref).digest_address_pairs, &digest);
         assert(copy(pair_exists), 42);
 
         // remove digest from digests vector and move it to revoked
@@ -283,7 +283,7 @@ module Issuer {
         return 0, false;
     }
 
-    getDigestSubjectPairIndexByDigest(digest_address_pairs: &Vector.T<Self.DigestAddressPair>, digest: &bytearray): u64 * bool {
+    getDigestHolderPairIndexByDigest(digest_address_pairs: &Vector.T<Self.DigestAddressPair>, digest: &bytearray): u64 * bool {
         let len: u64;
         let i: u64;
         let digest_address_pair_ref: &Self.DigestAddressPair;
@@ -323,16 +323,37 @@ module Issuer {
     }
 
     // Creates clean credential proof
-    createCredentialProof(subject: address, digest: bytearray, nonce: u64): Self.CredentialProof{
+    createCredentialProof(holder: address, digest: bytearray, nonce: u64): Self.CredentialProof{
         return CredentialProof {
             owner_signatures: Vector.empty<Self.Signature>(),
             signed: false,
             digest: move(digest),
             revoked: false,
             nonce: move(nonce),
-            subject: move(subject)
+            holder: move(holder)
         };
     }
     
 
 }
+
+
+
+// // Test that a course can be registered
+// //! new-transaction
+// //! sender: mathcourse
+
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+
+// main() {
+//     // let total_enrolled: u64;
+//     // // register course
+//     // // TODO : create course with multiple owners
+//     // Course.register(Vector.empty<address>(),1);
+    
+//     // // initial number of students enrolled should be 0
+//     // total_enrolled = Course.get_enrolled_count({{mathcourse}});
+//     // assert(move(total_enrolled) == 0, 42);
+//     // return;
+// }
