@@ -38,10 +38,9 @@ module Issuer {
         digests : Vector.T<bytearray>,
         revoked_digests : Vector.T<bytearray>,
         nonce: u64, // counter for each issue/revoke operation because it modifies ledger state
-        facts: Vector.T<Self.Fact> // an ordered vector of facts which denotes what a issuer can certify
     }
 
-    resource CredentialProof{
+    struct CredentialProof{
         owners : Vector.T<address>,
         sub_credential_proofs : Vector.T<address>, // exams
         signed_by : Vector.T<address>,
@@ -73,11 +72,11 @@ module Issuer {
     //--------------------------------
     // Methods
     //--------------------------------
-    public registerIssuer(_owners: Vector.T<address>, parent_issuer: address, facts: Vector.T<Self.Fact>) {
+    public registerIssuer(_owners: Vector.T<address>, parent_issuer: address) {
         // validate if sender already holds an issuer resource
         assert(!Self.hasIssuerResource(get_txn_sender()), 42);
         move_to_sender<IssuerResource>(
-            Self.newIssueResource(copy(_owners), copy(parent_issuer), copy(facts))
+            Self.newIssueResource(copy(_owners), copy(parent_issuer))
         );
         return;
     }
@@ -109,7 +108,7 @@ module Issuer {
     }
 
     // requested by sub issuer
-    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address, facts: Vector.T<Self.Fact>) acquires IssuerResource{
+    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address) acquires IssuerResource{
         let requester_account_ref: &mut Self.IssuerResource;
         assert(Self.hasIssuerResource(get_txn_sender()), 42); // only issuer can run this op.
 
@@ -117,7 +116,7 @@ module Issuer {
         requester_account_ref = borrow_global_mut<IssuerResource>(copy(parent_issuer));
         Vector.push_back<address>(&mut copy(requester_account_ref).sub_issuers, get_txn_sender());
 
-        Self.registerIssuer(copy(_owners), copy(parent_issuer), copy(facts));
+        Self.registerIssuer(copy(_owners), copy(parent_issuer));
         return;
     }
 
@@ -154,7 +153,7 @@ module Issuer {
         };
     }
 
-    newIssueResource(_owners: Vector.T<address>, parent_issuer: address, _facts: Vector.T<Self.Fact>): Self.IssuerResource {
+    newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
         return IssuerResource { 
             owners : move(_owners),
             sub_issuers : Vector.empty<address>(),
@@ -162,8 +161,7 @@ module Issuer {
             holders : Vector.empty<address>(),
             digests : Vector.empty<bytearray>(),
             revoked_digests : Vector.empty<bytearray>(),
-            nonce : 1, 
-            facts : move(_facts)
+            nonce : 1
         };
     }
 }
@@ -192,7 +190,7 @@ main() {
     let sender: address;
 
     // register issuer with no parent
-    Issuer.registerIssuer(Vector.empty<address>(), 0x00, Vector.empty<Issuer.Fact>());
+    Issuer.registerIssuer(Vector.empty<address>(), 0x00);
     
     // check if issuer resource exists
     sender = get_txn_sender();
@@ -218,7 +216,7 @@ main() {
     
 
     // register issuer with no parent
-    Issuer.registerIssuer(move(owners), {{university}},  Vector.empty<Issuer.Fact>());
+    Issuer.registerIssuer(move(owners), {{university}});
     
     // check if issuer resource exists
     sender = get_txn_sender();
