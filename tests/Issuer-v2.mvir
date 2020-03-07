@@ -182,8 +182,14 @@ main() {
     let exists1: bool;
     let sender: address;
     let ir: Issuer.IssuerResource;
+
+    let owners: Vector.T<address>;
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
+
     // register issuer with no parent
-    Issuer.registerIssuer(Vector.empty<address>(), {{university}});
+    Issuer.registerIssuer(move(owners), {{university}});
     
     // check if issuer resource exists
     sender = get_txn_sender();
