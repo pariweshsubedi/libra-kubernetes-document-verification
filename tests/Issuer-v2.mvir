@@ -16,6 +16,7 @@ module Proofs {
     }
 
     resource CredentialProof{
+        holder: address,
         issuer: Vector.T<address>,
         owners : Vector.T<address>,
         sub_credential_proofs : Vector.T<address>, // exams
@@ -42,6 +43,19 @@ module Proofs {
     // stored with issuer
     resource RevocationProofs{
         credential_proofs : Vector.T<Self.RevocationProof>   
+    }
+
+    public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof, account: address) acquires CredentialAccount{
+        let credential_account_ref: &mut Self.CredentialAccount;
+    
+        // assert(&copy(credential_proof).holder == copy(account), 2);
+        
+        credential_account_ref = borrow_global_mut<CredentialAccount>(copy(account));
+        Vector.push_back<Self.CredentialProof>(
+            &mut copy(credential_account_ref).credential_proofs, 
+            move(credential_proof)
+        );
+        return;
     }
 }
 
@@ -80,30 +94,26 @@ module EarmarkedCredentialProof {
     // called by receipient to claimCP. Can only be claimed if a quorum of owners have signed
     // params : 
     // issuer : address of the issuing course
-    public claimCP(issuer: address, digest: bytearray){
+    public claimCP(issuer: address, digest: bytearray) acquires LoggedProofs{
         let cp_index: u64;
         let cp_exists: bool;
         let credential_proof: Proofs.CredentialProof;
-        let requester_credential_account_ref: &mut Proofs.CredentialAccount;
         let requester_logged_proofs: &mut Self.LoggedProofs;
 
-        // move the claimed credential proof to holder's wallet
-        // cp_index, cp_exists = Self.getCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest);
+        // 1. move the claimed credential proof to holder's wallet
+        // Fetch claimed credential proof
+        requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
+        cp_index, cp_exists = Self.getCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest);
         
         // check that a credential proof exists
-        // assert(copy(cp_exists), 42);
+        assert(copy(cp_exists), 42);
         
         // remove credential proof from issuer resource
-        // credential_proof = Vector.remove_unstable<bytearray>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
+        credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
-        // // // move credential proof to holder account
-        // // requester_credential_account_ref = borrow_global_mut<Proofs.CredentialAccount>(get_txn_sender());
-        // // Vector.push_back<Proofs.CredentialProof>(
-        // //     &mut copy(requester_credential_account_ref).credential_proofs, 
-        // //     move(credential_proof)
-        // // );
-
-        // add digest to issuer resource
+        // move credential proof to holder account
+        Proofs.moveCredentialsProofToAccount(move(credential_proof), get_txn_sender());
+        
         return;
     }
 
