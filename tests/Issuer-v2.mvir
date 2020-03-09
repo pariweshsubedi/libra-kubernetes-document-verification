@@ -9,6 +9,7 @@
 //! sender: bbchain
 module Proofs {
     import 0x0.Vector;
+
     struct Credential{
         digest : bytearray,
         signed : bool,
@@ -45,10 +46,6 @@ module Proofs {
         credential_proofs : Vector.T<Self.RevocationProof>   
     }
 
-    // public transferCredential(){
-
-    // }
-
     public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof, account: address) acquires CredentialAccount{
         let credential_account_ref: &mut Self.CredentialAccount;
     
@@ -82,6 +79,23 @@ module Proofs {
         }
 
         return 0, false;
+    }
+
+    public hasCredentialAccount(addr: address): bool {
+        let has: bool;
+        has = exists<CredentialAccount>(move(addr));
+        return move(has);
+    }
+
+    public newCredentialAccount(_issuer: address, _holder: address){
+        move_to_sender<CredentialAccount>(
+            CredentialAccount {
+                wallet_issuer : move(_issuer),
+                holder : move(_holder),
+                credential_proofs : Vector.empty<Self.CredentialProof>()
+            }
+        );
+        return;
     }
 }
 
@@ -142,8 +156,6 @@ module EarmarkedCredentialProof {
         // move credential proof to holder account
         Proofs.moveCredentialsProofToAccount(move(credential_proof), get_txn_sender());
 
-        
-        
         return;
     }
 
@@ -161,17 +173,7 @@ module Issuer {
     import 0x0.Vector;
     import 0x0.LibraSystem;
     import 0x0.AddressUtil;
-    
-    //--------------------------------
-    // Structs
-    //--------------------------------
-    // represents course work / test
-    struct Fact{
-        issuer: address,
-        digest : bytearray,
-        signed : bool,
-        revoked : bool
-    }
+    import {{bbchain}}.Proofs;
 
     //--------------------------------
     // Resources
@@ -185,35 +187,6 @@ module Issuer {
         revoked_digests : Vector.T<bytearray>,
         nonce: u64, // counter for each issue/revoke operation because it modifies ledger state
     }
-
-    struct CredentialProof{
-        owners : Vector.T<address>,
-        sub_credential_proofs : Vector.T<address>, // exams
-        signed_by : Vector.T<address>,
-        valid : bool,
-        revoked : bool,
-        digest : bytearray,
-        facts: Vector.T<Self.Fact>,
-    }
-
-    resource RevocationProof {
-        credentialProof: Self.CredentialProof,
-        reason: bytearray,
-        nonce: u64 // counter from issuer
-    }
-
-    // stored with holder
-    resource CredentialAccount{
-        wallet_issuer : address,
-        holder : address,
-        credential_proofs : Vector.T<Self.CredentialProof>   
-    }
-
-    // stored with issuer
-    resource RevocationProofs{
-        credential_proofs : Vector.T<Self.RevocationProof>   
-    }
-
 
     //--------------------------------
     // Methods
@@ -230,27 +203,16 @@ module Issuer {
     // student use this to register register with Issuer
     public initHolder(_issuer: address) acquires IssuerResource{
         assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
-        assert(!Self.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential wallet
+        assert(!Proofs.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential wallet
         // TODO : check that the issuer has issuer resource
 
         Self.addHolder(get_txn_sender(), copy(_issuer));
+
         
-        move_to_sender<CredentialAccount>(
-            Self.newCredentialAccount(move(_issuer), get_txn_sender())
-        );
+        Proofs.newCredentialAccount(move(_issuer), get_txn_sender());
+        
+        
         return;
-    }
-
-    public hasCredentialAccount(addr: address): bool {
-        let has: bool;
-        has = exists<CredentialAccount>(move(addr));
-        return move(has);
-    }
-
-    public hasIssuerResource(addr: address): bool {
-        let issuerResourceExists: bool;
-        issuerResourceExists = exists<IssuerResource>(move(addr));
-        return move(issuerResourceExists);
     }
 
     // requested by sub issuer to register it under its parent issuer
@@ -266,12 +228,21 @@ module Issuer {
         return;
     }
 
-    public initFact(): Self.Fact {
-        return Fact{
-            issuer: get_txn_sender(),
-            digest : h"",
-            signed : false,
-            revoked : false
+    public hasIssuerResource(addr: address): bool {
+        let issuerResourceExists: bool;
+        issuerResourceExists = exists<IssuerResource>(move(addr));
+        return move(issuerResourceExists);
+    }
+
+    newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
+        return IssuerResource { 
+            owners : move(_owners),
+            sub_issuers : Vector.empty<address>(),
+            parent_issuer: move(parent_issuer),
+            holders : Vector.empty<address>(),
+            digests : Vector.empty<bytearray>(),
+            revoked_digests : Vector.empty<bytearray>(),
+            nonce : 1
         };
     }
 
@@ -290,102 +261,86 @@ module Issuer {
         
         return;
     }
-
-    newCredentialAccount(_issuer: address, _holder: address): Self.CredentialAccount {
-        return  CredentialAccount {
-            wallet_issuer : move(_issuer),
-            holder : move(_holder),
-            credential_proofs : Vector.empty<Self.CredentialProof>()
-        };
-    }
-
-    newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
-        return IssuerResource { 
-            owners : move(_owners),
-            sub_issuers : Vector.empty<address>(),
-            parent_issuer: move(parent_issuer),
-            holders : Vector.empty<address>(),
-            digests : Vector.empty<bytearray>(),
-            revoked_digests : Vector.empty<bytearray>(),
-            nonce : 1
-        };
-    }
 }
 
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let issuerResourceExists: bool;
-//     // check if issuer resource exists
-//     issuerResourceExists = Issuer.hasIssuerResource({{university}});
-//     assert(move(issuerResourceExists) == false, 42);
-//     return;
-// }
+// Test that a university can register
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let issuerResourceExists: bool;
+    // check if issuer resource exists
+    issuerResourceExists = Issuer.hasIssuerResource({{university}});
+    assert(move(issuerResourceExists) == false, 42);
+    return;
+}
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     let sender: address;
+// Test that a university can register
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let sender: address;
 
-//     // register issuer with no parent
-//     Issuer.registerIssuer(Vector.empty<address>(), 0x00);
+    // register issuer with no parent
+    Issuer.registerIssuer(Vector.empty<address>(), 0x00);
     
-//     // check if issuer resource exists
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
-//     return;
-// }
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
+    return;
+}
 
-// // Test that a course can be registered
-// //! new-transaction
-// //! sender: mathcourse
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     let sender: address;
-//     let ir: Issuer.IssuerResource;
+// Test that a course can be registered
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+import {{bbchain}}.Proofs;
+main() {
+    let exists1: bool;
+    let sender: address;
+    let ir: Issuer.IssuerResource;
 
-//     let owners: Vector.T<address>;
-//     owners = Vector.empty<address>();
-//     Vector.push_back<address>(&mut owners, {{mathprofessor}});
-//     Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    let owners: Vector.T<address>;
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
     
 
-//     // register issuer with no parent
-//     Issuer.registerIssuer(move(owners), {{university}});
+    // register issuer with no parent
+    Issuer.registerIssuer(move(owners), {{university}});
     
-//     // check if issuer resource exists
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
 
-//     return;
-// }
+    return;
+}
 
-// // Test that a holder(student) can register in a university
-// //! new-transaction
-// //! sender: student1
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     // check if issuer resource exists
-//     exists1 = Issuer.hasCredentialAccount(get_txn_sender());
-//     assert(move(exists1) == false, 42);
+// Test that a holder(student) can register in a university
+//! new-transaction
+//! sender: student1
+import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    // check if issuer resource exists
+    exists1 = Proofs.hasCredentialAccount(get_txn_sender());
+    assert(move(exists1) == false, 42);
 
-//     //register
-//     Issuer.initHolder({{university}});
-//     Issuer.registerHolder({{mathcourse}});
+    //register
+    Issuer.initHolder({{university}});
+    // Issuer.registerHolder({{mathcourse}});
     
-//     return;
-// }
+    return;
+}
