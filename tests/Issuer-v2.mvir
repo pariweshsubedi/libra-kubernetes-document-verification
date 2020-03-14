@@ -85,31 +85,32 @@ module Proofs {
         return 0, false;
     }
 
-    public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, credential_proofs: &Vector.T<Self.CredentialProof>, credential: Self.Credential){
+    public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, credential_proofs: &Vector.T<Self.CredentialProof>, _credential: Self.Credential): bool{
         let len: u64;
         let i: u64;
-        let credential_proof_ref: & Self.CredentialProof;
+        let credential_proof_ref: &mut Self.CredentialProof;
+        let addr: address;
+
+        addr = 0x00;
 
         i = 0;
         len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
-         while (copy(i) < copy(len)) {
-             
-            credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
-            
-            // if (*copy(credential).holder == *&copy(credential_proof_ref).holder) {
+        while (copy(i) < copy(len)) {
+            credential_proof_ref = Vector.borrow_mut<Self.CredentialProof>(copy(credential_proofs_mut), copy(i));
+            // if (copy(addr) == 0x00) {
             //     return;
             // }
-            // if (credential.holder == *&copy(credential_proof_ref).holder) {
-        //         // Vector.push_back<Self.Credential>(
-        //         //     copy(credential_proof_ref), 
-        //         //     move(credential)
-        //         // );
-        //         return;
-            // }
+            if (copy(addr) == *&copy(credential_proof_ref).holder) {
+                Vector.push_back<Self.Credential>(
+                    &mut move(credential_proof_ref).credentials, 
+                    move(_credential)
+                );
+                return true;
+            }
             i = move(i) + 1;
         }
 
-        return;
+        return false;
     }
 
     // pushToCredentialProof(credential_proof: &mut Self.CredentialProof, credential: Self.Credential){
@@ -204,15 +205,14 @@ module EarmarkedProofs {
 
     // // register credential under appropriate credentialproof
     public registerCredential(credential: Proofs.Credential) acquires LoggedProofs{
-        let cp_index: u64;
-        let cp_exists: bool;
-        let credential_proof: Proofs.CredentialProof;
         let requester_logged_proofs: &mut Self.LoggedProofs;
+        let success: bool;
 
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
-        Proofs.insertCredential(&mut copy(requester_logged_proofs).credential_proofs, &copy(requester_logged_proofs).credential_proofs, move(credential));
+        success = Proofs.insertCredential(&mut copy(requester_logged_proofs).credential_proofs, &copy(requester_logged_proofs).credential_proofs, move(credential));
+        assert(copy(success), 42);
         return;
     }
 
