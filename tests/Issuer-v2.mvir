@@ -12,6 +12,7 @@ module Proofs {
 
     struct Credential{
         digest : bytearray,
+        holder : address,
         signed : bool,
         revoked : bool,
         time: u64,
@@ -84,10 +85,55 @@ module Proofs {
         return 0, false;
     }
 
+    public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, credential_proofs: &Vector.T<Self.CredentialProof>, credential: Self.Credential){
+        let len: u64;
+        let i: u64;
+        let credential_proof_ref: & Self.CredentialProof;
+
+        i = 0;
+        len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
+         while (copy(i) < copy(len)) {
+             
+            credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
+            
+            // if (*copy(credential).holder == *&copy(credential_proof_ref).holder) {
+            //     return;
+            // }
+            // if (credential.holder == *&copy(credential_proof_ref).holder) {
+        //         // Vector.push_back<Self.Credential>(
+        //         //     copy(credential_proof_ref), 
+        //         //     move(credential)
+        //         // );
+        //         return;
+            // }
+            i = move(i) + 1;
+        }
+
+        return;
+    }
+
+    // pushToCredentialProof(credential_proof: &mut Self.CredentialProof, credential: Self.Credential){
+    //     Vector.push_back<Self.Credential>(
+    //         copy(credential_proof), 
+    //         copy(credential)
+    //     );
+    //     return;
+    // }
+
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
         has = exists<CredentialAccount>(move(addr));
         return move(has);
+    }
+
+    public newCredential(holder: address, digest: bytearray): Self.Credential{
+        return Credential{
+            digest : copy(digest),
+            holder : copy(holder),
+            signed : false,
+            revoked : false,
+            time: 1, // replace this with time.now() from newer libra version
+        };
     }
 
     public newCredentialAccount(_issuer: address, _holder: address){
@@ -156,7 +202,21 @@ module EarmarkedProofs {
         };
     }
 
-    // called by issuer when issuing CP
+    // // register credential under appropriate credentialproof
+    public registerCredential(credential: Proofs.Credential) acquires LoggedProofs{
+        let cp_index: u64;
+        let cp_exists: bool;
+        let credential_proof: Proofs.CredentialProof;
+        let requester_logged_proofs: &mut Self.LoggedProofs;
+
+        // 1. move the claimed credential proof to holder's wallet
+        // Fetch claimed credential proof
+        requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
+        Proofs.insertCredential(&mut copy(requester_logged_proofs).credential_proofs, &copy(requester_logged_proofs).credential_proofs, move(credential));
+        return;
+    }
+
+    // called by issuer when registering CP
     // fails if it is not an issuer running this
     public registerCP(cp: Proofs.CredentialProof) acquires LoggedProofs{
         let requester_logged_proofs: &mut Self.LoggedProofs;
@@ -302,10 +362,18 @@ module Issuer {
         return;
     }
 
-    //register holders credential under appropriate credential proof
-    // public registerCredential(holder:address){
-    //     return;
-    // }
+    // register holders credential under appropriate credential proof
+    public registerCredential(holder:address, digest: bytearray){
+        let credential: Proofs.Credential;
+
+        credential = Proofs.newCredential(
+            copy(holder),
+            copy(digest), 
+        );
+        
+        EarmarkedProofs.registerCredential(move(credential));
+        return;
+    }
 
     // public issueCredential(){
 
