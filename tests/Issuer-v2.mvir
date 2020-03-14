@@ -21,7 +21,8 @@ module Proofs {
         holder: address,
         issuer: Vector.T<address>,
         owners : Vector.T<address>,
-        signed_by : Vector.T<address>,
+        owners_signed : Vector.T<address>,
+        signed_by : u64, // number of owners who signed it
         valid : bool, // signed by quorum of owners
         revoked : bool,
         digest : bytearray,
@@ -107,12 +108,30 @@ module EarmarkedCredentialProof {
     import {{bbchain}}.Proofs;
     import 0x0.Vector;
 
+    struct DigestHolder {
+        issuer : Vector.T<address>,
+        owners : Vector.T<address>,
+        digest : bytearray,
+        holder : address
+    }
+
+    //--------------------------------
+    // Resources
+    //--------------------------------
+
     // A wrapper containing a Libra coin and the address of the recipient the
     // coin is earmarked for.
     resource LoggedProofs {
         credential_proofs: Vector.T<Proofs.CredentialProof>
     }
 
+    resource DigestHolderProofs {
+        digest_holders: Vector.T<Proofs.CredentialProof>
+    }
+
+    //--------------------------------
+    // Methods
+    //--------------------------------
     public createIssuerResource(): Self.LoggedProofs {
         return LoggedProofs {
             credential_proofs : Vector.empty<Proofs.CredentialProof>()
@@ -159,7 +178,13 @@ module EarmarkedCredentialProof {
         return;
     }
 
+    // // owner sign CP
+    // public signCP(){
+
+    // }
     
+    // after a holder signs
+    // saveToDigestHolderResource(){}
 
 }
 
@@ -207,10 +232,7 @@ module Issuer {
         // TODO : check that the issuer has issuer resource
 
         Self.addHolder(get_txn_sender(), copy(_issuer));
-
-        
         Proofs.newCredentialAccount(move(_issuer), get_txn_sender());
-        
         
         return;
     }
@@ -233,6 +255,18 @@ module Issuer {
         issuerResourceExists = exists<IssuerResource>(move(addr));
         return move(issuerResourceExists);
     }
+
+    // public issueCredential(){
+
+    // }
+
+    // public revokeCredential(){
+
+    // }
+
+    // public verifyCredential(){
+
+    // }
 
     newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
         return IssuerResource { 
