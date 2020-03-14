@@ -20,7 +20,7 @@ module Proofs {
     resource CredentialProof{
         quorum: u64,
         holder: address,
-        issuer: Vector.T<address>,
+        issuer: address,
         owners : Vector.T<address>,
         owners_signed : Vector.T<address>,
         signed_by : u64, // number of owners who signed it
@@ -100,13 +100,29 @@ module Proofs {
         );
         return;
     }
+
+    public newCredentialProof(_issuer: address, _holder: address, _quorum: u64, _owners: Vector.T<address>, _required_credentials: u64): Self.CredentialProof {
+        return CredentialProof{
+            quorum : move(_quorum),
+            holder : move(_holder),
+            issuer : move(_issuer),
+            owners : move(_owners),
+            owners_signed : Vector.empty<address>(),
+            signed_by : 0,
+            valid : false, 
+            revoked : false,
+            digest : h"",
+            credentials : Vector.empty<Self.Credential>(),
+            required_credentials : move(_required_credentials)
+        };      
+    }
 }
 
 
 // module that allows issuer to mark a credential resource for recepients
 //! new-transaction
 //! sender: bbchain
-module EarmarkedCredentialProof {
+module EarmarkedProofs {
     import {{bbchain}}.Proofs;
     import 0x0.Vector;
 
@@ -201,6 +217,7 @@ module Issuer {
     import 0x0.LibraSystem;
     import 0x0.AddressUtil;
     import {{bbchain}}.Proofs;
+    import {{bbchain}}.EarmarkedProofs;
 
     //--------------------------------
     // Resources
@@ -213,16 +230,23 @@ module Issuer {
         digests : Vector.T<bytearray>,
         revoked_digests : Vector.T<bytearray>,
         nonce: u64, // counter for each issue/revoke operation because it modifies ledger state
+        quorum : u64,
+        required_credentials: u64,
     }
 
     //--------------------------------
     // Methods
     //--------------------------------
-    public registerIssuer(_owners: Vector.T<address>, parent_issuer: address) {
+    public registerIssuer(_owners: Vector.T<address>, _parent_issuer: address, _quorum: u64, _required_credentials: u64) {
         // validate if sender already holds an issuer resource
         assert(!Self.hasIssuerResource(get_txn_sender()), 42);
         move_to_sender<IssuerResource>(
-            Self.newIssueResource(copy(_owners), copy(parent_issuer))
+            Self.newIssuerResource(
+                copy(_owners), 
+                copy(_parent_issuer), 
+                copy(_quorum), 
+                copy(_required_credentials)
+            )
         );
         return;
     }
@@ -240,7 +264,7 @@ module Issuer {
     }
 
     // requested by sub issuer to register it under its parent issuer
-    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address) acquires IssuerResource{
+    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address,  _quorum: u64, _required_credentials: u64) acquires IssuerResource{
         let requester_account_ref: &mut Self.IssuerResource;
         assert(Self.hasIssuerResource(get_txn_sender()), 42); // only issuer can run this op.
 
@@ -248,7 +272,7 @@ module Issuer {
         requester_account_ref = borrow_global_mut<IssuerResource>(copy(parent_issuer));
         Vector.push_back<address>(&mut copy(requester_account_ref).sub_issuers, get_txn_sender());
 
-        Self.registerIssuer(copy(_owners), copy(parent_issuer));
+        Self.registerIssuer(copy(_owners), copy(parent_issuer),  copy(_quorum), copy(_required_credentials));
         return;
     }
 
@@ -259,15 +283,29 @@ module Issuer {
     }
 
     //register holders credential proof in issuer logged proof
-    public registerHolder(holder:address){
-        //issue a earmarkedproof for holder in logged proof
+    public registerHolder(holder:address) acquires IssuerResource{
+        let requester_account_ref: &Self.IssuerResource;
+        let credential_proof: Proofs.CredentialProof;
+
+        requester_account_ref = borrow_global<IssuerResource>(get_txn_sender());
+
+        credential_proof = Proofs.newCredentialProof(
+            get_txn_sender(), 
+            copy(holder), 
+            *&copy(requester_account_ref).quorum, 
+            *&copy(requester_account_ref).owners, 
+            *&copy(requester_account_ref).required_credentials
+        );
+        
+        EarmarkedProofs.registerCP(move(credential_proof));
+
         return;
     }
 
     //register holders credential under appropriate credential proof
-    public registerCredential(holder:address){
-        return;
-    }
+    // public registerCredential(holder:address){
+    //     return;
+    // }
 
     // public issueCredential(){
 
@@ -281,15 +319,17 @@ module Issuer {
 
     // }
 
-    newIssueResource(_owners: Vector.T<address>, parent_issuer: address): Self.IssuerResource {
+    newIssuerResource(_owners: Vector.T<address>, parent_issuer: address, _quorum: u64, _required_credentials: u64): Self.IssuerResource {
         return IssuerResource { 
             owners : move(_owners),
             sub_issuers : Vector.empty<address>(),
-            parent_issuer: move(parent_issuer),
+            parent_issuer : move(parent_issuer),
             holders : Vector.empty<address>(),
             digests : Vector.empty<bytearray>(),
             revoked_digests : Vector.empty<bytearray>(),
-            nonce : 1
+            nonce : 1,
+            quorum : copy(_quorum),
+            required_credentials: copy(_required_credentials),
         };
     }
 
@@ -311,83 +351,83 @@ module Issuer {
 }
 
 
-// Test that a university can register
-//! new-transaction
-//! sender: university
-import {{bbchain}}.Proofs;
-import {{bbchain}}.Issuer;
-import 0x0.Vector;
-main() {
-    let issuerResourceExists: bool;
-    // check if issuer resource exists
-    issuerResourceExists = Issuer.hasIssuerResource({{university}});
-    assert(move(issuerResourceExists) == false, 42);
-    return;
-}
+// // Test that a university can register
+// //! new-transaction
+// //! sender: university
+// import {{bbchain}}.Proofs;
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// main() {
+//     let issuerResourceExists: bool;
+//     // check if issuer resource exists
+//     issuerResourceExists = Issuer.hasIssuerResource({{university}});
+//     assert(move(issuerResourceExists) == false, 42);
+//     return;
+// }
 
-// Test that a university can register
-//! new-transaction
-//! sender: university
-import {{bbchain}}.Proofs;
-import {{bbchain}}.Issuer;
-import 0x0.Vector;
-main() {
-    let exists1: bool;
-    let sender: address;
+// // Test that a university can register
+// //! new-transaction
+// //! sender: university
+// import {{bbchain}}.Proofs;
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// main() {
+//     let exists1: bool;
+//     let sender: address;
 
-    // register issuer with no parent
-    Issuer.registerIssuer(Vector.empty<address>(), 0x00);
+//     // register issuer with no parent
+//     Issuer.registerIssuer(Vector.empty<address>(), 0x00);
     
-    // check if issuer resource exists
-    sender = get_txn_sender();
-    exists1 = Issuer.hasIssuerResource(copy(sender));
-    assert(move(exists1), 42);
-    return;
-}
+//     // check if issuer resource exists
+//     sender = get_txn_sender();
+//     exists1 = Issuer.hasIssuerResource(copy(sender));
+//     assert(move(exists1), 42);
+//     return;
+// }
 
-// Test that a course can be registered
-//! new-transaction
-//! sender: mathcourse
-import {{bbchain}}.Issuer;
-import 0x0.Vector;
-import {{bbchain}}.Proofs;
-main() {
-    let exists1: bool;
-    let sender: address;
-    let ir: Issuer.IssuerResource;
+// // Test that a course can be registered
+// //! new-transaction
+// //! sender: mathcourse
+// import {{bbchain}}.Issuer;
+// import 0x0.Vector;
+// import {{bbchain}}.Proofs;
+// main() {
+//     let exists1: bool;
+//     let sender: address;
+//     let ir: Issuer.IssuerResource;
 
-    let owners: Vector.T<address>;
-    owners = Vector.empty<address>();
-    Vector.push_back<address>(&mut owners, {{mathprofessor}});
-    Vector.push_back<address>(&mut owners, {{mathevaluator}});
+//     let owners: Vector.T<address>;
+//     owners = Vector.empty<address>();
+//     Vector.push_back<address>(&mut owners, {{mathprofessor}});
+//     Vector.push_back<address>(&mut owners, {{mathevaluator}});
     
 
-    // register issuer with no parent
-    Issuer.registerIssuer(move(owners), {{university}});
+//     // register issuer with no parent
+//     Issuer.registerIssuer(move(owners), {{university}});
     
-    // check if issuer resource exists
-    sender = get_txn_sender();
-    exists1 = Issuer.hasIssuerResource(copy(sender));
-    assert(move(exists1), 42);
+//     // check if issuer resource exists
+//     sender = get_txn_sender();
+//     exists1 = Issuer.hasIssuerResource(copy(sender));
+//     assert(move(exists1), 42);
 
-    return;
-}
+//     return;
+// }
 
-// Test that a holder(student) can register in a university
-//! new-transaction
-//! sender: student1
-import {{bbchain}}.Issuer;
-import {{bbchain}}.Proofs;
-import 0x0.Vector;
-main() {
-    let exists1: bool;
-    // check if issuer resource exists
-    exists1 = Proofs.hasCredentialAccount(get_txn_sender());
-    assert(move(exists1) == false, 42);
+// // Test that a holder(student) can register in a university
+// //! new-transaction
+// //! sender: student1
+// import {{bbchain}}.Issuer;
+// import {{bbchain}}.Proofs;
+// import 0x0.Vector;
+// main() {
+//     let exists1: bool;
+//     // check if issuer resource exists
+//     exists1 = Proofs.hasCredentialAccount(get_txn_sender());
+//     assert(move(exists1) == false, 42);
 
-    //register
-    Issuer.initHolder({{university}});
-    // Issuer.registerHolder({{mathcourse}});
+//     //register
+//     Issuer.initHolder({{university}});
+//     // Issuer.registerHolder({{mathcourse}});
     
-    return;
-}
+//     return;
+// }
