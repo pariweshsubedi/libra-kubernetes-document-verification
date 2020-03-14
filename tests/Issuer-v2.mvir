@@ -13,7 +13,8 @@ module Proofs {
     struct Credential{
         digest : bytearray,
         signed : bool,
-        revoked : bool
+        revoked : bool,
+        time: u64,
     }
 
     resource CredentialProof{
@@ -27,6 +28,7 @@ module Proofs {
         revoked : bool,
         digest : bytearray,
         credentials: Vector.T<Self.Credential>,
+        required_credentials: u64 // sign only if expected number of credentials is reached
     }
 
     resource RevocationProof {
@@ -254,6 +256,17 @@ module Issuer {
         let issuerResourceExists: bool;
         issuerResourceExists = exists<IssuerResource>(move(addr));
         return move(issuerResourceExists);
+    }
+
+    //register holders credential proof in issuer logged proof
+    public registerHolder(holder:address){
+        //issue a earmarkedproof for holder in logged proof
+        return;
+    }
+
+    //register holders credential under appropriate credential proof
+    public registerCredential(holder:address){
+        return;
     }
 
     // public issueCredential(){
