@@ -16,6 +16,7 @@ module Proofs {
         signed : bool,
         revoked : bool,
         time: u64,
+        owners_signed : Vector.T<address>
     }
 
     resource CredentialProof{
@@ -23,8 +24,6 @@ module Proofs {
         holder: address,
         issuer: address,
         owners : Vector.T<address>,
-        owners_signed : Vector.T<address>,
-        signed_by : u64, // number of owners who signed it
         valid : bool, // signed by quorum of owners
         revoked : bool,
         digest : bytearray,
@@ -91,7 +90,7 @@ module Proofs {
         let credential_proof_ref: &mut Self.CredentialProof;
         let _holder: address;
 
-        _holder = 0x00; //Self.getCredentialHolder(&_credential);
+        _holder = 0x00; //todo: Self.getCredentialHolder(&_credential);
 
         i = 0;
         len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
@@ -126,6 +125,7 @@ module Proofs {
             signed : false,
             revoked : false,
             time: 1, // replace this with time.now() from newer libra version
+            owners_signed : Vector.empty<address>()
         };
     }
 
@@ -146,8 +146,6 @@ module Proofs {
             holder : move(_holder),
             issuer : move(_issuer),
             owners : move(_owners),
-            owners_signed : Vector.empty<address>(),
-            signed_by : 0,
             valid : false, 
             revoked : false,
             digest : h"",
@@ -253,9 +251,9 @@ module EarmarkedProofs {
     }
 
     // // owner sign CP
-    // public signCP(){
-
-    // }
+    public signCP(){
+        return;
+    }
     
     // after a holder signs
     // saveToDigestHolderResource(){}
