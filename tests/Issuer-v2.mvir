@@ -82,7 +82,7 @@ module Proofs {
         return 0, false;
     }
 
-    public getSignedCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray, check_valid: bool): u64 * bool {
+    public getCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray, check_valid: bool): u64 * bool {
         let len: u64;
         let i: u64;
         let credential_proof_ref: &Self.CredentialProof;
@@ -258,7 +258,7 @@ module EarmarkedProofs {
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
-        cp_index, cp_exists = Proofs.getSignedCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest, true);
+        cp_index, cp_exists = Proofs.getCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest, true);
         
         // check that a credential proof exists
         assert(copy(cp_exists), 42);
@@ -272,10 +272,33 @@ module EarmarkedProofs {
         return;
     }
 
-    // // owner sign CP
-    public signCP(){
+    // owner sign CP
+    public signCP(digest: bytearray, issuer:address){
+
+        // let credential: &Proofs.Credential;
+        // credential = Self.getCredentialByDigest(get_txn_sender(), copy(digest)); 
+        // Proofs.signCredential()
         return;
     }
+
+
+    // getCredentialByDigest(holder:address, digest:bytearray): &Proofs.Credential{
+    //     let cp_index: u64;
+    //     let cp_exists: bool;
+    //     let credential: &mut Proofs.Credential;
+    //     let credential_proof: &mut Proofs.CredentialProof;
+    //     let requester_logged_proofs: &mut Self.LoggedProofs;
+
+    //     requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(holder));
+    //     cp_index, cp_exists = Proofs.getCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest, false);
+
+    //     // check that a credential proof exists
+    //     assert(copy(cp_exists), 42);
+
+    //     credential_proof = Vector.borrow_mut<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
+
+    //     return;
+    // }
     
     // after a holder signs
     // saveToDigestHolderResource(){}
@@ -389,6 +412,20 @@ module Issuer {
         
         EarmarkedProofs.registerCredential(move(credential));
         return;
+    }
+
+    // // assert that the transaction sender is a valid owner
+    public canSign(issuer:address): bool acquires IssuerResource{
+        let requester_account_ref: &Self.IssuerResource;
+        let can_sign: bool;
+        let addr: address;
+
+        addr = get_txn_sender();
+
+        requester_account_ref = borrow_global<IssuerResource>(copy(issuer));
+        can_sign = Vector.contains<address>(&copy(requester_account_ref).owners, &addr);
+        
+        return copy(can_sign);
     }
 
     // public issueCredential(){
