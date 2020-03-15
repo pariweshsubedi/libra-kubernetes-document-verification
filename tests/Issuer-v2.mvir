@@ -89,9 +89,9 @@ module Proofs {
         let len: u64;
         let i: u64;
         let credential_proof_ref: &mut Self.CredentialProof;
-        let addr: address;
+        let _holder: address;
 
-        addr = 0x00;
+        _holder = 0x00; //Self.getCredentialHolder(&_credential);
 
         i = 0;
         len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
@@ -100,7 +100,7 @@ module Proofs {
             // if (copy(addr) == 0x00) {
             //     return;
             // }
-            if (copy(addr) == *&copy(credential_proof_ref).holder) {
+            if (copy(_holder) == *&copy(credential_proof_ref).holder) {
                 Vector.push_back<Self.Credential>(
                     &mut move(credential_proof_ref).credentials, 
                     move(_credential)
@@ -112,14 +112,6 @@ module Proofs {
 
         return false;
     }
-
-    // pushToCredentialProof(credential_proof: &mut Self.CredentialProof, credential: Self.Credential){
-    //     Vector.push_back<Self.Credential>(
-    //         copy(credential_proof), 
-    //         copy(credential)
-    //     );
-    //     return;
-    // }
 
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
@@ -211,7 +203,11 @@ module EarmarkedProofs {
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
-        success = Proofs.insertCredential(&mut copy(requester_logged_proofs).credential_proofs, &copy(requester_logged_proofs).credential_proofs, move(credential));
+        success = Proofs.insertCredential(
+            &mut copy(requester_logged_proofs).credential_proofs, 
+            &copy(requester_logged_proofs).credential_proofs, 
+            move(credential)
+        );
         assert(copy(success), 42);
         return;
     }
