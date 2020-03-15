@@ -62,7 +62,27 @@ module Proofs {
         return;
     }
 
-    public getSignedCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray): u64 * bool {
+    public getCredentialByDigest(credentials: &Vector.T<Self.Credential>, digest: &bytearray): u64 * bool{
+        let len: u64;
+        let i: u64;
+        let credential_ref: &Self.Credential;
+
+        i = 0;
+        len = Vector.length<Self.Credential>(copy(credentials));
+
+        while (copy(i) < copy(len)) {
+            credential_ref = Vector.borrow<Self.Credential>(copy(credentials), copy(i));
+            
+            if (*copy(digest) == *&copy(credential_ref).digest) {
+                return copy(i), true;
+            }
+            i = move(i) + 1;
+        }
+
+        return 0, false;
+    }
+
+    public getSignedCredentialProofIndexByDigest(credential_proofs: &Vector.T<Self.CredentialProof>, digest: &bytearray, check_valid: bool): u64 * bool {
         let len: u64;
         let i: u64;
         let credential_proof_ref: &Self.CredentialProof;
@@ -74,7 +94,11 @@ module Proofs {
             credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
             
             if (*copy(digest) == *&copy(credential_proof_ref).digest) {
-                if(*&copy(credential_proof_ref).valid){
+                if(copy(check_valid)){
+                    if(*&copy(credential_proof_ref).valid){
+                        return copy(i), true;
+                    }
+                }else{
                     return copy(i), true;
                 }
             }
@@ -234,15 +258,13 @@ module EarmarkedProofs {
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
-        cp_index, cp_exists = Proofs.getSignedCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest);
+        cp_index, cp_exists = Proofs.getSignedCredentialProofIndexByDigest(&copy(requester_logged_proofs).credential_proofs, &digest, true);
         
         // check that a credential proof exists
         assert(copy(cp_exists), 42);
         
         // remove credential proof from issuer resource
         credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
-
-        //TODO: add check to see if credential proof is signed by quorum
 
         // move credential proof to holder account
         Proofs.moveCredentialsProofToAccount(move(credential_proof), get_txn_sender());
