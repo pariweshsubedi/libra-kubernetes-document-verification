@@ -16,7 +16,8 @@ module Proofs {
         signed : bool,
         revoked : bool,
         time: u64,
-        owners_signed : Vector.T<address>
+        owners_signed : Vector.T<address>,
+        owners : Vector.T<address>
     }
 
     resource CredentialProof{
@@ -142,14 +143,15 @@ module Proofs {
         return move(has);
     }
 
-    public newCredential(holder: address, digest: bytearray): Self.Credential{
+    public newCredential(holder: address, digest: bytearray, _owners: Vector.T<address>,): Self.Credential{
         return Credential{
             digest : copy(digest),
             holder : copy(holder),
             signed : false,
             revoked : false,
             time: 1, // replace this with time.now() from newer libra version
-            owners_signed : Vector.empty<address>()
+            owners_signed : Vector.empty<address>(),
+            owners : move(_owners)
         };
     }
 
@@ -402,12 +404,16 @@ module Issuer {
     }
 
     // register holders credential under appropriate credential proof
-    public registerCredential(holder:address, digest: bytearray){
+    public registerCredential(holder:address, digest: bytearray) acquires IssuerResource{
+        let requester_account_ref: &Self.IssuerResource;
         let credential: Proofs.Credential;
+
+        requester_account_ref = borrow_global<IssuerResource>(get_txn_sender());
 
         credential = Proofs.newCredential(
             copy(holder),
-            copy(digest), 
+            copy(digest),
+            *&copy(requester_account_ref).owners
         );
         
         EarmarkedProofs.registerCredential(move(credential));
