@@ -17,7 +17,8 @@ module Proofs {
         revoked : bool,
         time: u64,
         owners_signed : Vector.T<address>,
-        owners : Vector.T<address>
+        owners : Vector.T<address>,
+        quorum : u64
     }
 
     resource CredentialProof{
@@ -157,13 +158,33 @@ module Proofs {
         return 0, false;
     }
 
+    public signAsOwner(credential: &mut Self.Credential){
+        let sender_address: address;
+        let owners: &Vector.T<address>;
+        let owners_signed: &mut Vector.T<address>;
+        
+        sender_address = get_txn_sender();
+        owners = &copy(credential).owners;
+        owners_signed = &mut copy(credential).owners_signed;
+        
+        assert(Vector.contains<address>(copy(owners), &sender_address), 1);
+        assert(!Vector.contains<address>(freeze(copy(owners_signed)), &sender_address), 1);
+
+        Vector.push_back<address>(
+                    copy(owners_signed), 
+                    copy(sender_address)
+                );
+        
+        return;
+    }
+
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
         has = exists<CredentialAccount>(move(addr));
         return move(has);
     }
 
-    public newCredential(holder: address, digest: bytearray, _owners: Vector.T<address>,): Self.Credential{
+    public newCredential(holder: address, digest: bytearray, _owners: Vector.T<address>, _quorum: u64): Self.Credential{
         return Credential{
             digest : copy(digest),
             holder : copy(holder),
@@ -171,7 +192,8 @@ module Proofs {
             revoked : false,
             time: 1, // replace this with time.now() from newer libra version
             owners_signed : Vector.empty<address>(),
-            owners : move(_owners)
+            owners : move(_owners),
+            quorum: copy(_quorum)
         };
     }
 
@@ -249,27 +271,38 @@ module EarmarkedProofs {
     // sign credential
     // invoked by : owner
     // TODO:
-    // - sign the credential associated with bytearray
-    // - check if quorums on credential has been reached
-    // - move credential to appropriate credential proof
-    // - compute digest of credential proof based on all included credential
+    // 2 check if quorums on credential has been reached
+    // 3 move credential to appropriate credential proof
+    // 4 compute digest of credential proof based on all included credential
     public signCredential(issuer: address, digest: bytearray) acquires LoggedProofs{
-        let requester_logged_proofs: & Self.LoggedProofs;
+        let requester_logged_proofs: &mut Self.LoggedProofs;
         let success: bool;
         let sender_address: address;
         let credential_index:u64;
         let credential_exists:bool;
-
+        let credential_mut_ref: &mut Proofs.Credential;
+        
+        let owners: &Vector.T<address>;
+        let credentials: &mut Vector.T<Proofs.Credential>;
         sender_address = get_txn_sender();
 
-        // 1. move the claimed credential proof to holder's wallet
+        // 1 sign the credential associated with bytearray
         // ownership verification
-        requester_logged_proofs = borrow_global<LoggedProofs>(copy(issuer));
-        assert(!Vector.contains<address>(&copy(requester_logged_proofs).owners, &sender_address), 1);
+        requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(issuer));
+        owners = &copy(requester_logged_proofs).owners;
+        credentials = &mut copy(requester_logged_proofs).credentials;
+
+        assert(!Vector.contains<address>(copy(owners), &sender_address), 1);
 
         // Fetch claimed credential proof
-        credential_index, credential_exists=Proofs.getCredentialIndexByDigest(&copy(requester_logged_proofs).credentials, &digest);
+        credential_index, credential_exists=Proofs.getCredentialIndexByDigest(freeze(copy(credentials)), &digest);
         assert(copy(credential_exists), 1);
+        
+        // sign as owner
+        credential_mut_ref = Vector.borrow_mut<Proofs.Credential>(copy(credentials), copy(credential_index));
+        Proofs.signAsOwner(copy(credential_mut_ref));
+
+        // 2 check if quorums on credential has been reached
 
         return;
     }
@@ -438,7 +471,8 @@ module Issuer {
         credential = Proofs.newCredential(
             copy(holder),
             copy(digest),
-            *&copy(requester_account_ref).owners
+            *&copy(requester_account_ref).owners,
+            *&copy(requester_account_ref).quorum
         );
         
         EarmarkedProofs.registerCredential(move(credential));
