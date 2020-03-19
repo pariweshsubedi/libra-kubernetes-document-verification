@@ -226,9 +226,9 @@ module EarmarkedProofs {
         return ;
     }
 
-    // sign credential under appropriate credentialproof
+    // sign credential
     // invoked by : owner
-    // expected action
+    // TODO:
     // - sign the credential associated with bytearray
     // - check if quorums on credential has been reached
     // - move credential to appropriate credential proof
@@ -236,10 +236,14 @@ module EarmarkedProofs {
     public signCredential(issuer: address, digest: bytearray) acquires LoggedProofs{
         let requester_logged_proofs: & Self.LoggedProofs;
         let success: bool;
+        let sender_address: address;
+
+        sender_address = get_txn_sender();
 
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global<LoggedProofs>(copy(issuer));
+        assert(!Vector.contains<address>(&copy(requester_logged_proofs).owners, &sender_address), 1);
 
         return;
     }
