@@ -203,7 +203,9 @@ module EarmarkedProofs {
     // A wrapper containing a Libra coin and the address of the recipient the
     // coin is earmarked for.
     resource LoggedProofs {
-        credential_proofs: Vector.T<Proofs.CredentialProof>
+        owners : Vector.T<address>,
+        credential_proofs: Vector.T<Proofs.CredentialProof>,
+        credentials: Vector.T<Proofs.Credential>
     }
 
     resource DigestHolderProofs {
@@ -213,10 +215,33 @@ module EarmarkedProofs {
     //--------------------------------
     // Methods
     //--------------------------------
-    public createIssuerResource(): Self.LoggedProofs {
-        return LoggedProofs {
-            credential_proofs : Vector.empty<Proofs.CredentialProof>()
-        };
+    public createIssuerLoggedProof(_owners: Vector.T<address>){
+        move_to_sender<LoggedProofs>(
+            LoggedProofs {
+                owners: move(_owners),
+                credential_proofs : Vector.empty<Proofs.CredentialProof>(),
+                credentials : Vector.empty<Proofs.Credential>()
+            }
+        );
+        return ;
+    }
+
+    // sign credential under appropriate credentialproof
+    // invoked by : owner
+    // expected action
+    // - sign the credential associated with bytearray
+    // - check if quorums on credential has been reached
+    // - move credential to appropriate credential proof
+    // - compute digest of credential proof based on all included credential
+    public signCredential(issuer: address, digest: bytearray) acquires LoggedProofs{
+        let requester_logged_proofs: & Self.LoggedProofs;
+        let success: bool;
+
+        // 1. move the claimed credential proof to holder's wallet
+        // Fetch claimed credential proof
+        requester_logged_proofs = borrow_global<LoggedProofs>(copy(issuer));
+
+        return;
     }
 
     // // register credential under appropriate credentialproof
@@ -349,6 +374,7 @@ module Issuer {
                 copy(_required_credentials)
             )
         );
+        EarmarkedProofs.createIssuerLoggedProof(copy(_owners));
         return;
     }
 
