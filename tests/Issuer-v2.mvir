@@ -110,7 +110,7 @@ module Proofs {
         return 0, false;
     }
 
-    public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, credential_proofs: &Vector.T<Self.CredentialProof>, _credential: Self.Credential): bool{
+    public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, _credential: Self.Credential): bool{
         let len: u64;
         let i: u64;
         let credential_proof_ref: &mut Self.CredentialProof;
@@ -119,7 +119,7 @@ module Proofs {
         _holder = 0x00; //todo: Self.getCredentialHolder(&_credential);
 
         i = 0;
-        len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
+        len = Vector.length<Self.CredentialProof>(freeze(copy(credential_proofs_mut)));
         while (copy(i) < copy(len)) {
             credential_proof_ref = Vector.borrow_mut<Self.CredentialProof>(copy(credential_proofs_mut), copy(i));
             // if (copy(addr) == 0x00) {
@@ -186,10 +186,31 @@ module Proofs {
         owners_signed_len = Vector.length<address>(freeze(copy(owners_signed)));
         
         if(copy(owners_signed_len) == *&copy(credential).quorum){
+            *&mut copy(credential).signed = true;
             return true;
         }
         return false;
     }
+
+    
+    public transferSignedCredentialToLoggedProof(
+        credential_proofs_mut: &mut Vector.T<Self.CredentialProof>,
+        credentials: &mut Vector.T<Self.Credential>,
+        credential_index: u64
+    ){
+        let success: bool;
+        let signed_credential: Self.Credential;
+        signed_credential = Vector.remove_unstable<Self.Credential>(copy(credentials), copy(credential_index));
+
+        success = Self.insertCredential(
+            copy(credential_proofs_mut), 
+            move(signed_credential)
+        );
+        assert(copy(success), 42);
+
+        return;
+    }
+
 
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
@@ -298,17 +319,16 @@ module EarmarkedProofs {
         
         let owners: &Vector.T<address>;
         let credentials: &mut Vector.T<Proofs.Credential>;
-        
+        let credential_proofs: &mut Vector.T<Proofs.CredentialProof>;
         
         sender_address = get_txn_sender();
 
         // 1 sign the credential associated with bytearray
         // ownership verification
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(issuer));
-        
         owners = &copy(requester_logged_proofs).owners;
         credentials = &mut copy(requester_logged_proofs).credentials;
-
+        credential_proofs = &mut copy(requester_logged_proofs).credential_proofs;
         assert(!Vector.contains<address>(copy(owners), &sender_address), 1);
 
         // Fetch claimed credential proof
@@ -317,17 +337,23 @@ module EarmarkedProofs {
         
         // sign as owner
         credential_mut_ref = Vector.borrow_mut<Proofs.Credential>(copy(credentials), copy(credential_index));
-        
         Proofs.signAsOwner(copy(credential_mut_ref));
-        
-        has_consensus = Proofs.hasSignatureConsensus(copy(credential_mut_ref));
+
         // 2 check if quorums on credential has been reached
-        
-        // if()
+        has_consensus = Proofs.hasSignatureConsensus(copy(credential_mut_ref));
+        if(copy(has_consensus)){
+            // transfer credential to logged credentialproof
+            // Proofs.transferSignedCredentialToLoggedProof(
+            //         copy(credential_proofs),
+            //         copy(credentials),
+            //         copy(credential_index)
+            //     );
+        }
 
         return;
     }
 
+    // TODO: register credential inserts into earmarked proof credentials vector
     // // register credential under appropriate credentialproof
     public registerCredential(credential: Proofs.Credential) acquires LoggedProofs{
         let requester_logged_proofs: &mut Self.LoggedProofs;
@@ -336,12 +362,12 @@ module EarmarkedProofs {
         // 1. move the claimed credential proof to holder's wallet
         // Fetch claimed credential proof
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(get_txn_sender());
-        success = Proofs.insertCredential(
-            &mut copy(requester_logged_proofs).credential_proofs, 
-            &copy(requester_logged_proofs).credential_proofs, 
-            move(credential)
-        );
-        assert(copy(success), 42);
+        // success = Proofs.insertCredential(
+        //     &mut copy(requester_logged_proofs).credential_proofs, 
+        //     &copy(requester_logged_proofs).credential_proofs, 
+        //     move(credential)
+        // );
+        // assert(copy(success), 42);
         return;
     }
 
