@@ -178,6 +178,19 @@ module Proofs {
         return;
     }
 
+    public hasSignatureConsensus(credential: &mut Self.Credential): bool{
+        let quorum_reched: bool;
+        let owners_signed_len: u64;
+        let owners_signed: &mut Vector.T<address>;
+        owners_signed = &mut copy(credential).owners_signed;
+        owners_signed_len = Vector.length<address>(freeze(copy(owners_signed)));
+        
+        if(copy(owners_signed_len) == *&copy(credential).quorum){
+            return true;
+        }
+        return false;
+    }
+
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
         has = exists<CredentialAccount>(move(addr));
@@ -281,14 +294,18 @@ module EarmarkedProofs {
         let credential_index:u64;
         let credential_exists:bool;
         let credential_mut_ref: &mut Proofs.Credential;
+        let has_consensus: bool;
         
         let owners: &Vector.T<address>;
         let credentials: &mut Vector.T<Proofs.Credential>;
+        
+        
         sender_address = get_txn_sender();
 
         // 1 sign the credential associated with bytearray
         // ownership verification
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(issuer));
+        
         owners = &copy(requester_logged_proofs).owners;
         credentials = &mut copy(requester_logged_proofs).credentials;
 
@@ -300,9 +317,13 @@ module EarmarkedProofs {
         
         // sign as owner
         credential_mut_ref = Vector.borrow_mut<Proofs.Credential>(copy(credentials), copy(credential_index));
+        
         Proofs.signAsOwner(copy(credential_mut_ref));
-
+        
+        has_consensus = Proofs.hasSignatureConsensus(copy(credential_mut_ref));
         // 2 check if quorums on credential has been reached
+        
+        // if()
 
         return;
     }
