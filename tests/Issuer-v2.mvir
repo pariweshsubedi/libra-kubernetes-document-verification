@@ -196,26 +196,6 @@ module Proofs {
         return false;
     }
 
-    
-    public transferSignedCredentialToLoggedProof(
-        credential_proofs_mut: &mut Vector.T<Self.CredentialProof>,
-        credentials: &mut Vector.T<Self.Credential>,
-        credential_index: u64
-    ){
-        let success: bool;
-        let signed_credential: Self.Credential;
-        signed_credential = Vector.remove_unstable<Self.Credential>(copy(credentials), copy(credential_index));
-
-        success = Self.insertCredential(
-            copy(credential_proofs_mut), 
-            move(signed_credential)
-        );
-        assert(copy(success), 42);
-
-        return;
-    }
-
-
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
         has = exists<CredentialAccount>(move(addr));
@@ -295,6 +275,13 @@ module EarmarkedProofs {
     //--------------------------------
     // Methods
     //--------------------------------
+
+    public hasLoggedProofs(addr: address): bool {
+        let exists: bool;
+        exists = exists<LoggedProofs>(move(addr));
+        return move(exists);
+    }
+
     public createIssuerLoggedProof(_owners: Vector.T<address>){
         move_to_sender<LoggedProofs>(
             LoggedProofs {
@@ -549,18 +536,6 @@ module Issuer {
         return copy(can_sign);
     }
 
-    // public issueCredential(){
-
-    // }
-
-    // public revokeCredential(){
-
-    // }
-
-    // public verifyCredential(){
-
-    // }
-
     newIssuerResource(_owners: Vector.T<address>, parent_issuer: address, _quorum: u64, _required_credentials: u64): Self.IssuerResource {
         return IssuerResource { 
             owners : move(_owners),
@@ -593,67 +568,77 @@ module Issuer {
 }
 
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Proofs;
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let issuerResourceExists: bool;
-//     // check if issuer resource exists
-//     issuerResourceExists = Issuer.hasIssuerResource({{university}});
-//     assert(move(issuerResourceExists) == false, 42);
-//     return;
-// }
+// Test that a university can register
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let existsLoggedProofs: bool;
+    let sender: address;
+    let owners: Vector.T<address>;
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Proofs;
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     let sender: address;
-
-//     // register issuer with no parent
-//     Issuer.registerIssuer(Vector.empty<address>(), 0x00);
+    // check if issuer resource exists
+    exists1 = Issuer.hasIssuerResource({{university}});
+    assert(move(exists1) == false, 42);
     
-//     // check if issuer resource exists
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
-//     return;
-// }
-
-// // Test that a course can be registered
-// //! new-transaction
-// //! sender: mathcourse
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// import {{bbchain}}.Proofs;
-// main() {
-//     let exists1: bool;
-//     let sender: address;
-//     let ir: Issuer.IssuerResource;
-
-//     let owners: Vector.T<address>;
-//     owners = Vector.empty<address>();
-//     Vector.push_back<address>(&mut owners, {{mathprofessor}});
-//     Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    // define owners
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
     
-
-//     // register issuer with no parent
-//     Issuer.registerIssuer(move(owners), {{university}});
+    // register issuer with no parent
+    Issuer.registerIssuer(
+        move(owners), // _owners
+        0x00, // _parent_issuer
+        2, // _quorum
+        2 // required number of credentials in CP
+    );
     
-//     // check if issuer resource exists
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
 
-//     return;
-// }
+    // check that issuer has logged proof resource
+    existsLoggedProofs = Issuer.hasIssuerResource(copy(sender));
+    assert(move(existsLoggedProofs), 42);
+
+    return;
+}
+
+
+// Test that a course can be registered
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let existsLoggedProofs: bool;
+    let sender: address;
+    let ir: Issuer.IssuerResource;
+
+    let owners: Vector.T<address>;
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    
+    // register issuer with no parent
+    Issuer.registerIssuer(move(owners), {{university}}, 2, 2);
+    
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
+
+    // check that issuer has logged proof resource
+    existsLoggedProofs = Issuer.hasIssuerResource(copy(sender));
+    assert(move(existsLoggedProofs), 42);
+
+    return;
+}
 
 // // Test that a holder(student) can register in a university
 // //! new-transaction
