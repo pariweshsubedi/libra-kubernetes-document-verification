@@ -110,13 +110,17 @@ module Proofs {
         return 0, false;
     }
 
+    public getHolder(_credential: &Self.Credential): address{
+        return *&copy(_credential).holder;
+    }
+
     public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, _credential: Self.Credential): bool{
         let len: u64;
         let i: u64;
         let credential_proof_ref: &mut Self.CredentialProof;
         let _holder: address;
 
-        _holder = 0x00; //todo: Self.getCredentialHolder(&_credential);
+        _holder = Self.getHolder(& _credential); //todo: Self.getCredentialHolder(&_credential);
 
         i = 0;
         len = Vector.length<Self.CredentialProof>(freeze(copy(credential_proofs_mut)));
