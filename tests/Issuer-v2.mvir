@@ -280,6 +280,15 @@ module EarmarkedProofs {
         return move(len);
     }
 
+    public getCredentialLength(): u64 acquires LoggedProofs {
+        let requester_logged_proofs: &Self.LoggedProofs;
+        let len: u64;
+        
+        requester_logged_proofs = borrow_global<LoggedProofs>(get_txn_sender());
+        len = Vector.length<Proofs.Credential>(&copy(requester_logged_proofs).credentials);
+        return move(len);
+    }
+
     public hasLoggedProofs(addr: address): bool {
         let exists: bool;
         exists = exists<LoggedProofs>(move(addr));
@@ -707,5 +716,23 @@ main() {
     has_enrollment = Issuer.hasEnrollment({{student1}}, {{mathcourse}});
     assert(move(has_enrollment), 42);
     
+    return;
+}
+
+// Register Credential for student
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let logged_cp_len: u64;
+    Issuer.registerCredential({{student1}}, h"") ;
+
+    // check if a credential is registered in earmarked proof
+    logged_cp_len = EarmarkedProofs.getCredentialLength();
+    assert(move(logged_cp_len) == 1, 49);
+
     return;
 }
