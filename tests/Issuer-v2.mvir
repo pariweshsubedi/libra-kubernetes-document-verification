@@ -434,7 +434,7 @@ module EarmarkedProofs {
         let sender_address: address;
         sender_address = get_txn_sender();
 
-        // validate that issuer knows the sender
+        //TODO: validate that issuer knows the sender (in issuerresource.holders)
 
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(sender_address));
         cp_index, cp_exists = Proofs.getCredentialProofIndexByHolderAddress(& copy(requester_logged_proofs).credential_proofs, &sender_address);
@@ -443,10 +443,10 @@ module EarmarkedProofs {
         assert(copy(cp_exists), 42);
         
         // remove credential proof from issuer resource
-        // credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
+        credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
         // move credential proof to holder account
-        // Proofs.moveCredentialsProofToAccount(move(credential_proof));
+        Proofs.moveCredentialsProofToAccount(move(credential_proof));
 
         return;
     }
@@ -798,6 +798,26 @@ main() {
     return;
 }
 
+// Signing non existent credential should result in error
+//! new-transaction
+//! sender: mathprofessor
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    EarmarkedProofs.signCredential({{mathcourse}}, h"0000000100");
+    return;
+}
+// check: ABORTED
+
+// Signing as non owner result in error
+//! new-transaction
+//! sender: university
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+    return;
+}
+// check: ABORTED
+
 // Sign Credential as owner
 //! new-transaction
 //! sender: mathprofessor
@@ -849,10 +869,10 @@ main() {
 
 //     EarmarkedProofs.claimCP({{mathcourse}});
 
-//     // number of credential proof should still be one, 
-//     // it is only the credentials that were moved to CP when signed by owners
-//     logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
-//     assert(move(logged_cp_len) == 0, 49);
+//     // // number of credential proof should still be one, 
+//     // // it is only the credentials that were moved to CP when signed by owners
+//     // logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
+//     // assert(move(logged_cp_len) == 0, 49);
     
 //     return;
 // }
