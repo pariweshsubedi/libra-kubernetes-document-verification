@@ -179,7 +179,6 @@ module Proofs {
     }
 
     public hasSignatureConsensus(credential: &mut Self.Credential): bool{
-        let quorum_reched: bool;
         let owners_signed_len: u64;
         let owners_signed: &mut Vector.T<address>;
         owners_signed = &mut copy(credential).owners_signed;
@@ -244,6 +243,11 @@ module Proofs {
 module EarmarkedProofs {
     import {{bbchain}}.Proofs;
     import 0x0.Vector;
+    import 0x0.LibraAccount;
+
+    struct MyEvent { 
+        b: bool 
+    }
 
     struct DigestHolder {
         issuer : Vector.T<address>,
@@ -280,13 +284,20 @@ module EarmarkedProofs {
         return move(len);
     }
 
-    public getCredentialLength(): u64 acquires LoggedProofs {
+    public getCredentialLength(issuer: address): u64 acquires LoggedProofs {
         let requester_logged_proofs: &Self.LoggedProofs;
         let len: u64;
         
-        requester_logged_proofs = borrow_global<LoggedProofs>(get_txn_sender());
+        requester_logged_proofs = borrow_global<LoggedProofs>(copy(issuer));
         len = Vector.length<Proofs.Credential>(&copy(requester_logged_proofs).credentials);
         return move(len);
+    }
+
+    public hasOwnership(addr: address, issuer: address): bool acquires LoggedProofs {
+        let requester_logged_proofs: &Self.LoggedProofs;
+        
+        requester_logged_proofs = borrow_global<LoggedProofs>(copy(issuer));
+        return Vector.contains<address>(&copy(requester_logged_proofs).owners, &addr);
     }
 
     public hasLoggedProofs(addr: address): bool {
@@ -336,11 +347,11 @@ module EarmarkedProofs {
         owners = &copy(requester_logged_proofs).owners;
         credentials = &mut copy(requester_logged_proofs).credentials;
         credential_proofs = &mut copy(requester_logged_proofs).credential_proofs;
-        assert(!Vector.contains<address>(copy(owners), &sender_address), 1);
+        assert(Vector.contains<address>(copy(owners), &sender_address), 198);
 
         // Fetch credential
         credential_index, credential_exists=Proofs.getCredentialIndexByDigest(freeze(copy(credentials)), &digest);
-        assert(copy(credential_exists), 1);
+        assert(copy(credential_exists), 199);
         
         signed_credential = Vector.remove_unstable<Proofs.Credential>(copy(credentials), copy(credential_index));
         signed_credential_mut = &mut signed_credential;
@@ -354,7 +365,6 @@ module EarmarkedProofs {
                 copy(credentials), 
                 *move(signed_credential_mut)
             );
-            
         }else{
             // push credential to logged credentials 
             successfulTransfer = Proofs.insertCredential(
@@ -417,6 +427,16 @@ module EarmarkedProofs {
 
         return;
     }
+
+
+    // Events
+    public emit_event(val: bool) {
+        let handle: LibraAccount.EventHandle<Self.MyEvent>;
+        handle = LibraAccount.new_event_handle<Self.MyEvent>();
+        LibraAccount.emit_event<Self.MyEvent>(&mut handle, MyEvent{ b: copy(val) });
+        LibraAccount.destroy_handle<Self.MyEvent>(move(handle));
+        return;
+    }
 }
 
 //! new-transaction
@@ -450,6 +470,14 @@ module Issuer {
     //--------------------------------
     // Methods
     //--------------------------------
+
+    public hasOwnership(addr: address, issuer: address): bool acquires IssuerResource{
+        let requester_account_ref: &Self.IssuerResource;
+        requester_account_ref = borrow_global<IssuerResource>(copy(issuer));
+
+        return Vector.contains<address>(&copy(requester_account_ref).owners, &addr);
+    }
+
      public hasEnrollment(holder: address, issuer: address): bool acquires IssuerResource{
         let requester_account_ref: &Self.IssuerResource;
         requester_account_ref = borrow_global<IssuerResource>(copy(issuer));
@@ -667,6 +695,7 @@ main() {
     let sender: address;
     let ir: Issuer.IssuerResource;
     let logged_cp_len: u64;
+    let has_ownership: bool;
     
     let owners: Vector.T<address>;
     owners = Vector.empty<address>();
@@ -691,6 +720,16 @@ main() {
     // check that issuer has logged proof resource
     existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
     assert(move(existsLoggedProofs), 42);
+
+    // check that the owners are registerd to sign earmarked proofs
+    has_ownership = Issuer.hasOwnership({{mathprofessor}}, copy(sender));
+    assert(copy(has_ownership), 123);
+    has_ownership = EarmarkedProofs.hasOwnership({{mathprofessor}}, copy(sender));
+    assert(move(has_ownership), 123);
+    has_ownership = Issuer.hasOwnership({{mathevaluator}}, copy(sender));
+    assert(copy(has_ownership), 123);
+    has_ownership = EarmarkedProofs.hasOwnership({{mathevaluator}}, copy(sender));
+    assert(move(has_ownership), 123);
 
     // register student to course
     Issuer.registerHolder({{student1}});
@@ -728,11 +767,46 @@ import {{bbchain}}.EarmarkedProofs;
 import 0x0.Vector;
 main() {
     let logged_cp_len: u64;
-    Issuer.registerCredential({{student1}}, h"") ;
+    Issuer.registerCredential({{student1}}, h"00000001") ;
+    Issuer.registerCredential({{student1}}, h"00000002") ;
+    Issuer.registerCredential({{student1}}, h"00000003") ;
 
     // check if a credential is registered in earmarked proof
-    logged_cp_len = EarmarkedProofs.getCredentialLength();
-    assert(move(logged_cp_len) == 1, 49);
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+    assert(move(logged_cp_len) == 3, 49);
 
     return;
 }
+
+// Sign Credential as owner
+//! new-transaction
+//! sender: mathprofessor
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let logged_cp_len: u64;
+    
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+
+    // check if a credential still under credentials
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+    // assert(move(logged_cp_len) == 3, 49);
+
+    return;
+}
+
+// // Sign Credential as owner
+// //! new-transaction
+// //! sender: mathevaluator
+// import {{bbchain}}.Proofs;
+// import {{bbchain}}.Issuer;
+// import {{bbchain}}.EarmarkedProofs;
+// import 0x0.Vector;
+// main() {
+//     let logged_cp_len: u64;
+    
+//     EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+//     return;
+// }
