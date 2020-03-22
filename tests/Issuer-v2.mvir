@@ -361,17 +361,17 @@ module EarmarkedProofs {
         has_consensus = Proofs.hasSignatureConsensus(copy(signed_credential_mut));
         if(copy(has_consensus)){
             // push credential to credential proof
-            Vector.push_back<Proofs.Credential>(
-                copy(credentials), 
-                *move(signed_credential_mut)
-            );
-        }else{
-            // push credential to logged credentials 
             successfulTransfer = Proofs.insertCredential(
                 copy(credential_proofs), 
                 *move(signed_credential_mut)
             );
             assert(copy(successfulTransfer), 42);
+        }else{
+            // push credential to logged credentials 
+            Vector.push_back<Proofs.Credential>(
+                copy(credentials), 
+                *move(signed_credential_mut)
+            );
         }
 
         return;
@@ -711,7 +711,7 @@ main() {
     assert(move(existsLoggedProofs) == false, 42);
     
     // register issuer(course) with university as parent
-    Issuer.registerIssuer(move(owners), {{university}}, 2, 2);
+    Issuer.registerIssuer(move(owners), {{university}}, 2, 3);
     
     // check if issuer resource exists
     exists1 = Issuer.hasIssuerResource(copy(sender));
@@ -789,24 +789,33 @@ main() {
     let logged_cp_len: u64;
     
     EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000002");
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000003");
 
     // check if a credential still under credentials
     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
-    // assert(move(logged_cp_len) == 3, 49);
+    assert(move(logged_cp_len) == 3, 49);
 
     return;
 }
 
-// // Sign Credential as owner
-// //! new-transaction
-// //! sender: mathevaluator
-// import {{bbchain}}.Proofs;
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.EarmarkedProofs;
-// import 0x0.Vector;
-// main() {
-//     let logged_cp_len: u64;
+// Sign Credential as owner
+//! new-transaction
+//! sender: mathevaluator
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let logged_cp_len: u64;
     
-//     EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
-//     return;
-// }
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000002");
+    EarmarkedProofs.signCredential({{mathcourse}}, h"00000003");
+
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+
+    // when quorum has signed the credential should be moved to credential proof
+    assert(move(logged_cp_len) == 0, 49);
+    return;
+}
