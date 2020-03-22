@@ -5,6 +5,7 @@
 //! account: mathevaluator, 1000000000
 //! account: student1, 1000000000
 //! account: student2, 1000000000
+//! account: verifier, 1000000000
 
 //! new-transaction
 //! sender: bbchain
@@ -459,6 +460,10 @@ module EarmarkedProofs {
         return;
     }
 
+    public verifyCredential(digest: bytearray, issuer: address, student: address): bool{
+        return true;
+    }
+
 
     // Events
     public emit_event(val: bool) {
@@ -501,6 +506,32 @@ module Issuer {
     //--------------------------------
     // Methods
     //--------------------------------
+
+    public signCredential(issuer: address, digest: bytearray) acquires IssuerResource{
+        let requester_account_ref: &mut Self.IssuerResource;
+
+        EarmarkedProofs.signCredential(copy(issuer), copy(digest));
+
+        // update issuer resource and add new holder
+        requester_account_ref = borrow_global_mut<IssuerResource>(copy(issuer));
+        Vector.push_back<bytearray>(&mut copy(requester_account_ref).digests, copy(digest));
+        return;
+    }
+
+    public verifyCredential(digest: bytearray, issuer: address, holder: address): bool acquires IssuerResource{
+        let requester_account_ref: &Self.IssuerResource;
+        let is_valid: bool;
+        requester_account_ref = borrow_global<IssuerResource>(copy(issuer));
+
+        // assert that the digest hasnt been revoked
+        assert(!Vector.contains<bytearray>(&copy(requester_account_ref).revoked_digests, &digest), 1);
+        // assert that the digest is authorized by the issuer
+        assert(Vector.contains<bytearray>(&copy(requester_account_ref).digests, &digest), 1);
+
+        // loop through digest issuer proof and verify that the digest belongs to the student
+        is_valid = EarmarkedProofs.verifyCredential(copy(digest), copy(issuer), copy(holder));
+        return move(is_valid);
+    }
 
     public hasOwnership(addr: address, issuer: address): bool acquires IssuerResource{
         let requester_account_ref: &Self.IssuerResource;
@@ -809,9 +840,9 @@ main() {
 // Signing non existent credential should result in error
 //! new-transaction
 //! sender: mathprofessor
-import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Issuer;
 main() {
-    EarmarkedProofs.signCredential({{mathcourse}}, h"0000000100");
+    Issuer.signCredential({{mathcourse}}, h"0000000100");
     return;
 }
 // check: ABORTED
@@ -819,9 +850,9 @@ main() {
 // Signing as non owner result in error
 //! new-transaction
 //! sender: university
-import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Issuer;
 main() {
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
+    Issuer.signCredential({{mathcourse}}, h"00000001");
     return;
 }
 // check: ABORTED
@@ -829,13 +860,14 @@ main() {
 // Sign Credential as owner
 //! new-transaction
 //! sender: mathprofessor
+import {{bbchain}}.Issuer;
 import {{bbchain}}.EarmarkedProofs;
 main() {
     let logged_cp_len: u64;
     
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000002");
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000003");
+    Issuer.signCredential({{mathcourse}}, h"00000001");
+    Issuer.signCredential({{mathcourse}}, h"00000002");
+    Issuer.signCredential({{mathcourse}}, h"00000003");
 
     // check if a credential still under credentials
     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
@@ -847,14 +879,15 @@ main() {
 // Sign Credential as owner
 //! new-transaction
 //! sender: mathevaluator
+import {{bbchain}}.Issuer;
 import {{bbchain}}.EarmarkedProofs;
 main() {
     let logged_c_len: u64;
     let logged_cp_len: u64;
     
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000001");
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000002");
-    EarmarkedProofs.signCredential({{mathcourse}}, h"00000003");
+    Issuer.signCredential({{mathcourse}}, h"00000001");
+    Issuer.signCredential({{mathcourse}}, h"00000002");
+    Issuer.signCredential({{mathcourse}}, h"00000003");
 
     logged_c_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
     // when quorum has signed the credential should be moved to credential proof
@@ -890,3 +923,14 @@ main() {
     
     return;
 }
+
+// // test that a digest can be verified
+// //! new-transaction
+// //! sender: verifier
+// import {{bbchain}}.Issuer;
+// main() {
+//     let valid_digest: bool;
+//     valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student1}} );
+//     assert(copy(valid_digest), 49);
+//     return;
+// }
