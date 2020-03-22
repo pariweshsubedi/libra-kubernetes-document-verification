@@ -281,8 +281,6 @@ module EarmarkedProofs {
     }
 
     struct DigestHolder {
-        issuer : Vector.T<address>,
-        owners : Vector.T<address>,
         digest : bytearray,
         holder : address
     }
@@ -461,6 +459,12 @@ module EarmarkedProofs {
     }
 
     public verifyCredential(digest: bytearray, issuer: address, student: address): bool{
+        let digest_student_pair_exists: bool;
+        
+        // TODO
+        // loop through digest holder proof
+        // if the digest belongs to student
+        
         return true;
     }
 
@@ -924,13 +928,13 @@ main() {
     return;
 }
 
-// // test that a digest can be verified
-// //! new-transaction
-// //! sender: verifier
-// import {{bbchain}}.Issuer;
-// main() {
-//     let valid_digest: bool;
-//     valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student1}} );
-//     assert(copy(valid_digest), 49);
-//     return;
-// }
+// test that a digest can be verified
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+main() {
+    let valid_digest: bool;
+    valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student1}} );
+    assert(copy(valid_digest), 49);
+    return;
+}
