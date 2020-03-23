@@ -281,7 +281,7 @@ module EarmarkedProofs {
     }
 
     struct DigestHolder {
-        digest : bytearray,
+        digests : Vector.T<bytearray>,
         holder : address
     }
 
@@ -298,7 +298,7 @@ module EarmarkedProofs {
     }
 
     resource DigestHolderProofs {
-        digest_holders: Vector.T<Proofs.CredentialProof>
+        digest_holders: Vector.T<Self.DigestHolder>
     }
 
     //--------------------------------
@@ -343,7 +343,13 @@ module EarmarkedProofs {
                 credentials : Vector.empty<Proofs.Credential>()
             }
         );
-        return ;
+
+        move_to_sender<DigestHolderProofs>(
+            DigestHolderProofs {
+                digest_holders: Vector.empty<Self.DigestHolder>()
+            }
+        );
+        return;
     }
 
     // sign credential
@@ -438,6 +444,7 @@ module EarmarkedProofs {
         let cp_index: u64;
         let cp_exists: bool;
         let credential_proof: Proofs.CredentialProof;
+        let credential_proof_ref: &Proofs.CredentialProof;
         let requester_logged_proofs: &mut Self.LoggedProofs;
         let sender_address: address;
         sender_address = get_txn_sender();
@@ -452,11 +459,43 @@ module EarmarkedProofs {
         // remove credential proof from issuer resource
         credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
+        // TODO: save digest as digest holder proof
+        Self.createDigestHolderProof(&credential_proof);
+
         // move credential proof to holder account
         Proofs.moveCredentialsProofToAccount(move(credential_proof));
 
         return;
     }
+
+
+    createDigestHolderProof(credential_proof : &Proofs.CredentialProof){
+        // let owners: Vector.T<bytearray>;
+        // let len: u64;
+        // let i: u64;
+        // let credentials: &Vector.T<Self.Credential>;
+        // let credential_ref: &Self.Credential;
+
+        // credentials = &copy(credential_proof).credentials;
+
+        // i = 0;
+        // len = Vector.length<Self.Credential>(copy(credentials));
+
+        // while (copy(i) < copy(len)) {
+        //     credential_ref = Vector.borrow<Self.Credential>(copy(credentials), copy(i));
+            
+           
+        //     i = move(i) + 1;
+        // }
+
+        // // move this to digestholderproofs of the issuer
+        // DigestHolder {
+        //     digests : Vector.T<bytearray>,
+        //     holder : address
+        // };
+        return;
+    }
+
 
     public verifyCredential(digest: bytearray, issuer: address, student: address): bool{
         let digest_student_pair_exists: bool;
