@@ -492,7 +492,7 @@ module EarmarkedProofs {
         // remove credential proof from issuer resource
         credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
-        // TODO: save digest as digest holder proof
+        // save digest as digest holder proof
         Self.createDigestHolderProof(&credential_proof, copy(issuer));
 
         // move credential proof to holder account
@@ -527,14 +527,31 @@ module EarmarkedProofs {
     }
 
 
-    public verifyCredential(digest: bytearray, issuer: address, student: address): bool{
+    public verifyCredential(digest: bytearray, issuer: address, student: address): bool acquires DigestHolderProofs{
         let digest_student_pair_exists: bool;
+        let requester_dh_proofs: &Self.DigestHolderProofs;
+        let len: u64;
+        let i: u64;
+        let digest_holder_ref: &Self.DigestHolder;
         
-        // TODO
+        
         // loop through digest holder proof
         // if the digest belongs to student
-        
-        return true;
+        i = 0;
+        requester_dh_proofs = borrow_global<DigestHolderProofs>(copy(issuer));
+        len = Vector.length<Self.DigestHolder>(&copy(requester_dh_proofs).digest_holders);
+
+        while (copy(i) < copy(len)) {
+            digest_holder_ref = Vector.borrow<Self.DigestHolder>(&copy(requester_dh_proofs).digest_holders, copy(i));
+            
+            if (copy(student) == *&copy(digest_holder_ref).holder) {
+                if(Vector.contains<bytearray>(&copy(digest_holder_ref).digests, &digest)){
+                    return true;
+                }
+            }
+            i = move(i) + 1;
+        }        
+        return false;
     }
 
 
