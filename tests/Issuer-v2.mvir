@@ -144,6 +144,10 @@ module Proofs {
         return *&copy(_credential).holder;
     }
 
+    public getCredentialProofHolder(_credential_proof: &Self.CredentialProof): address{
+        return *&copy(_credential_proof).holder;
+    }
+
     public insertCredential(credential_proofs_mut: &mut Vector.T<Self.CredentialProof>, _credential: Self.Credential): bool{
         let len: u64;
         let i: u64;
@@ -264,6 +268,35 @@ module Proofs {
             credentials : Vector.empty<Self.Credential>(),
             required_credentials : move(_required_credentials)
         };      
+    }
+
+    public getCredentialProofDigests(credential_proof : &Self.CredentialProof): Vector.T<bytearray>{
+        let digests: Vector.T<bytearray>;
+        let len: u64;
+        let i: u64;
+        let credentials: &Vector.T<Self.Credential>;
+        let credential_ref: &Self.Credential;
+        let credential_proof_holder : address;
+
+        credential_proof_holder = Self.getCredentialProofHolder(copy(credential_proof));
+        credentials = &copy(credential_proof).credentials;
+        digests = Vector.empty<bytearray>();
+
+        i = 0;
+        len = Vector.length<Self.Credential>(copy(credentials));
+
+        while (copy(i) < copy(len)) {
+            credential_ref = Vector.borrow<Self.Credential>(copy(credentials), copy(i));
+            assert(copy(credential_proof_holder) == *&copy(credential_ref).holder, 890);
+            Vector.push_back<bytearray>(
+                &mut digests, 
+                *&copy(credential_ref).digest
+            );
+           
+            i = move(i) + 1;
+        }
+
+        return move(digests);
     }
 }
 
@@ -440,7 +473,7 @@ module EarmarkedProofs {
     // called by receipient to claimCP. Can only be claimed if a quorum of owners have signed
     // params : 
     // issuer : address of the issuing course
-    public claimCP(issuer: address) acquires LoggedProofs{
+    public claimCP(issuer: address) acquires LoggedProofs, DigestHolderProofs{
         let cp_index: u64;
         let cp_exists: bool;
         let credential_proof: Proofs.CredentialProof;
@@ -460,7 +493,7 @@ module EarmarkedProofs {
         credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
         // TODO: save digest as digest holder proof
-        Self.createDigestHolderProof(&credential_proof);
+        Self.createDigestHolderProof(&credential_proof, copy(issuer));
 
         // move credential proof to holder account
         Proofs.moveCredentialsProofToAccount(move(credential_proof));
@@ -469,30 +502,27 @@ module EarmarkedProofs {
     }
 
 
-    createDigestHolderProof(credential_proof : &Proofs.CredentialProof){
-        // let owners: Vector.T<bytearray>;
-        // let len: u64;
-        // let i: u64;
-        // let credentials: &Vector.T<Self.Credential>;
-        // let credential_ref: &Self.Credential;
+    createDigestHolderProof(credential_proof : &Proofs.CredentialProof, issuer: address) acquires DigestHolderProofs{
+        let digests: Vector.T<bytearray>;
+        let digest_holder: Self.DigestHolder;
+        let requester_dh_proofs: &mut Self.DigestHolderProofs;
+        let holder: address;
 
-        // credentials = &copy(credential_proof).credentials;
+        requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(copy(issuer));
 
-        // i = 0;
-        // len = Vector.length<Self.Credential>(copy(credentials));
+        holder = Proofs.getCredentialProofHolder(copy(credential_proof));
+        digests = Proofs.getCredentialProofDigests(copy(credential_proof));
+        
+        digest_holder = DigestHolder {
+            digests : move(digests),
+            holder : move(holder)
+        };
 
-        // while (copy(i) < copy(len)) {
-        //     credential_ref = Vector.borrow<Self.Credential>(copy(credentials), copy(i));
-            
-           
-        //     i = move(i) + 1;
-        // }
+        Vector.push_back<Self.DigestHolder>(
+            &mut copy(requester_dh_proofs).digest_holders, 
+            move(digest_holder)
+        );
 
-        // // move this to digestholderproofs of the issuer
-        // DigestHolder {
-        //     digests : Vector.T<bytearray>,
-        //     holder : address
-        // };
         return;
     }
 
