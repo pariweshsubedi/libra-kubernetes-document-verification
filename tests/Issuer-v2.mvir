@@ -534,7 +534,6 @@ module EarmarkedProofs {
         let i: u64;
         let digest_holder_ref: &Self.DigestHolder;
         
-        
         // loop through digest holder proof
         // if the digest belongs to student
         i = 0;
@@ -1024,3 +1023,16 @@ main() {
     assert(copy(valid_digest), 49);
     return;
 }
+
+// test that an invalid digest is detected
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+main() {
+    let valid_digest: bool;
+    valid_digest = Issuer.verifyCredential(h"00000090", {{mathcourse}}, {{student1}} );
+    assert(copy(valid_digest), 49);
+    return;
+}
+
+// check: ABORTED
