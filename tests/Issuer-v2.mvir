@@ -298,6 +298,7 @@ module Proofs {
 
         return move(digests);
     }
+
 }
 
 
@@ -315,7 +316,8 @@ module EarmarkedProofs {
 
     struct DigestHolder {
         digests : Vector.T<bytearray>,
-        holder : address
+        holder : address,
+        aggregation : bytearray
     }
 
     //--------------------------------
@@ -502,6 +504,15 @@ module EarmarkedProofs {
     }
 
 
+    aggregateProofs(digests: Vector.T<bytearray>): bytearray{
+       let aggregated_digest: bytearray;
+        
+        aggregated_digest = h"";
+
+        return move(aggregated_digest);
+    }
+
+
     createDigestHolderProof(credential_proof : &Proofs.CredentialProof, issuer: address) acquires DigestHolderProofs{
         let digests: Vector.T<bytearray>;
         let digest_holder: Self.DigestHolder;
@@ -514,8 +525,9 @@ module EarmarkedProofs {
         digests = Proofs.getCredentialProofDigests(copy(credential_proof));
         
         digest_holder = DigestHolder {
-            digests : move(digests),
-            holder : move(holder)
+            digests : copy(digests),
+            holder : move(holder),
+            aggregation : Self.aggregateProofs(copy(digests))
         };
 
         Vector.push_back<Self.DigestHolder>(
@@ -900,7 +912,6 @@ import {{bbchain}}.Issuer;
 main() {
     let has_enrollment: bool;
     
-    //register to a university
     has_enrollment = Issuer.hasEnrollment({{student1}}, {{mathcourse}});
     assert(move(has_enrollment), 42);
     
@@ -1024,6 +1035,17 @@ main() {
     return;
 }
 
+// test that a valid digest cant be presented as other holder
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+main() {
+    let valid_digest: bool;
+    valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student2}} );
+    assert(copy(valid_digest) == false, 49);
+    return;
+}
+
 // test that an invalid digest is detected
 //! new-transaction
 //! sender: verifier
@@ -1031,8 +1053,11 @@ import {{bbchain}}.Issuer;
 main() {
     let valid_digest: bool;
     valid_digest = Issuer.verifyCredential(h"00000090", {{mathcourse}}, {{student1}} );
-    assert(copy(valid_digest), 49);
+    assert(copy(valid_digest) == false, 49);
     return;
 }
 
 // check: ABORTED
+
+
+// TODO aggregation
