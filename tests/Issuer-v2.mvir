@@ -309,7 +309,7 @@ module EarmarkedProofs {
     import {{bbchain}}.Proofs;
     import 0x0.Vector;
     import 0x0.LibraAccount;
-    import 0x0.Hash;
+    // import 0x0.Hash;
     import 0x0.BytearrayUtil;
 
     struct MyEvent { 
@@ -506,7 +506,7 @@ module EarmarkedProofs {
     }
 
 
-    aggregateProofs(digests: Vector.T<bytearray>): bytearray{
+    public aggregateProofs(digests: Vector.T<bytearray>): bytearray{
         let aggregated_digest: bytearray;
         let digests_mut: &mut Vector.T<bytearray>;
         let digest: bytearray;
@@ -519,7 +519,7 @@ module EarmarkedProofs {
         len = Vector.length<bytearray>(freeze(copy(digests_mut)));
 
         loop {
-            digest = Vector.remove_unstable<bytearray>(copy(digests_mut), copy(i));
+            digest = *Vector.borrow_mut<bytearray>(copy(digests_mut), copy(i));
             aggregated_digest = BytearrayUtil.bytearray_concat(copy(aggregated_digest), copy(digest));
 
             i = copy(i) + 1;
@@ -528,7 +528,7 @@ module EarmarkedProofs {
             }
         }
         
-        return copy(aggregated_digest);
+        return move(aggregated_digest);
     }
 
 
@@ -630,14 +630,10 @@ module Issuer {
     // Methods
     //--------------------------------
 
-    public signCredential(issuer: address, digest: bytearray) acquires IssuerResource{
+    public signCredential(issuer: address, digest: bytearray){
         let requester_account_ref: &mut Self.IssuerResource;
 
         EarmarkedProofs.signCredential(copy(issuer), copy(digest));
-
-        // update issuer resource and add new holder
-        requester_account_ref = borrow_global_mut<IssuerResource>(copy(issuer));
-        Vector.push_back<bytearray>(&mut copy(requester_account_ref).digests, copy(digest));
         return;
     }
 
@@ -647,9 +643,7 @@ module Issuer {
         requester_account_ref = borrow_global<IssuerResource>(copy(issuer));
 
         // assert that the digest hasnt been revoked
-        assert(!Vector.contains<bytearray>(&copy(requester_account_ref).revoked_digests, &digest), 1);
-        // assert that the digest is authorized by the issuer
-        assert(Vector.contains<bytearray>(&copy(requester_account_ref).digests, &digest), 1);
+        assert(!Vector.contains<bytearray>(&copy(requester_account_ref).revoked_digests, &digest), 10);
 
         // loop through digest issuer proof and verify that the digest belongs to the student
         is_valid = EarmarkedProofs.verifyCredential(copy(digest), copy(issuer), copy(holder));
@@ -926,20 +920,6 @@ main() {
     return;
 }
 
-
-// Test that a holder(student) is registered
-//! new-transaction
-//! sender: student1
-import {{bbchain}}.Issuer;
-main() {
-    let has_enrollment: bool;
-    
-    has_enrollment = Issuer.hasEnrollment({{student1}}, {{mathcourse}});
-    assert(move(has_enrollment), 42);
-    
-    return;
-}
-
 // Register Credential for student
 //! new-transaction
 //! sender: mathcourse
@@ -1023,62 +1003,82 @@ main() {
 }
 
 
-// // Test that a holder(student) can claim credential proof
-// //! new-transaction
-// //! sender: student1
-// import {{bbchain}}.EarmarkedProofs;
-// import {{bbchain}}.Proofs;
-// main() {
-//     let logged_cp_len: u64;
-//     let len_cp_credential_account: u64;
+// Test that a holder(student) can claim credential proof
+//! new-transaction
+//! sender: student1
+import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
+main() {
+    let logged_cp_len: u64;
+    let len_cp_credential_account: u64;
 
-//     EarmarkedProofs.claimCP({{mathcourse}});
+    EarmarkedProofs.claimCP({{mathcourse}});
 
-//     // number of credential proof should still be one, 
-//     // it is only the credentials that were moved to CP when signed by owners
-//     logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
-//     assert(move(logged_cp_len) == 0, 49);
+    // number of credential proof should still be one, 
+    // it is only the credentials that were moved to CP when signed by owners
+    logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
+    assert(move(logged_cp_len) == 0, 49);
 
-//     // student's credential account should now consist of the signed credential proof
-//     len_cp_credential_account = Proofs.getCredentialAccountProofLength();
-//     assert(move(len_cp_credential_account) == 1, 49);
+    // student's credential account should now consist of the signed credential proof
+    len_cp_credential_account = Proofs.getCredentialAccountProofLength();
+    assert(move(len_cp_credential_account) == 1, 49);
     
-//     return;
-// }
-
-// // test that a digest can be verified
-// //! new-transaction
-// //! sender: verifier
-// import {{bbchain}}.Issuer;
-// main() {
-//     let valid_digest: bool;
-//     valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student1}} );
-//     assert(copy(valid_digest), 49);
-//     return;
-// }
-
-// // test that a valid digest cant be presented as other holder
-// //! new-transaction
-// //! sender: verifier
-// import {{bbchain}}.Issuer;
-// main() {
-//     let valid_digest: bool;
-//     valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student2}} );
-//     assert(copy(valid_digest) == false, 49);
-//     return;
-// }
-
-// // // test that an invalid digest is detected
-// // //! new-transaction
-// // //! sender: verifier
-// // import {{bbchain}}.Issuer;
-// // main() {
-// //     let valid_digest: bool;
-// //     valid_digest = Issuer.verifyCredential(h"00000090", {{mathcourse}}, {{student1}} );
-// //     assert(copy(valid_digest) == false, 49);
-// //     return;
-// // }
+    return;
+}
 
 
+// test that a digest can be verified
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let valid_digest: bool;
+    let aggregated_digest: bytearray;
+    let digests: Vector.T<bytearray>;
 
-// // TODO aggregation
+    digests = Vector.empty<bytearray>();
+    Vector.push_back<bytearray>(&mut digests, h"00000001");
+    Vector.push_back<bytearray>(&mut digests, h"00000002");
+    Vector.push_back<bytearray>(&mut digests, h"00000003");
+    
+    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    
+    valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
+    assert(copy(valid_digest), 49);
+    return;
+}
+
+// test that a valid digest cant be presented as other holder
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+main() {
+    let valid_digest: bool;
+    valid_digest = Issuer.verifyCredential(h"00000001", {{mathcourse}}, {{student2}} );
+    assert(copy(valid_digest) == false, 49);
+    return;
+}
+
+// test that an invalid digest is detected
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+main() {
+    let valid_digest: bool;
+    valid_digest = Issuer.verifyCredential(h"00000090", {{mathcourse}}, {{student1}} );
+    assert(copy(valid_digest) == false, 49);
+    return;
+}
+
+// Test that a holder(student) is registered
+//! new-transaction
+//! sender: student1
+import {{bbchain}}.Issuer;
+main() {
+    let has_enrollment: bool;
+    has_enrollment = Issuer.hasEnrollment({{student1}}, {{mathcourse}});
+    assert(move(has_enrollment), 42);
+    return;
+}
