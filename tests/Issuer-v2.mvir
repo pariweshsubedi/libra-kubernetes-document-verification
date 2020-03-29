@@ -1147,3 +1147,26 @@ main() {
     EarmarkedProofs.revoke_digest(move(aggregated_digest));
     return;
 }
+
+// test that digesst verification now fails
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let valid_digest: bool;
+    let aggregated_digest: bytearray;
+    let digests: Vector.T<bytearray>;
+
+    digests = Vector.empty<bytearray>();
+    Vector.push_back<bytearray>(&mut digests, h"00000001");
+    Vector.push_back<bytearray>(&mut digests, h"00000002");
+    Vector.push_back<bytearray>(&mut digests, h"00000003");
+    
+    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    
+    valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
+    return;
+}
+// check: ABORTED
