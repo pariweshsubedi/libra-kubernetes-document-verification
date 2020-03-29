@@ -338,9 +338,36 @@ module EarmarkedProofs {
         digest_holders: Vector.T<Self.DigestHolder>
     }
 
+    resource RevocationProofs {
+        revoked_digests: Vector.T<bytearray>
+    }
+
     //--------------------------------
     // Methods
     //--------------------------------
+
+    public is_digest_revoked(digest: bytearray, issuer: address): bool acquires RevocationProofs{
+        let requester_revocation_proofs: &Self.RevocationProofs;
+        requester_revocation_proofs = borrow_global<RevocationProofs>(copy(issuer));
+
+        // check if the digest is revoked
+        return Vector.contains<bytearray>(&copy(requester_revocation_proofs).revoked_digests, &digest);
+    }
+
+    // Works only if called by issuer
+    public revoke_digest(digest: bytearray) acquires RevocationProofs{
+        let requester_revocation_proofs: &mut Self.RevocationProofs;
+        requester_revocation_proofs = borrow_global_mut<RevocationProofs>(get_txn_sender());
+
+        // assert that the digest is not already revoked
+        assert(!Vector.contains<bytearray>(&copy(requester_revocation_proofs).revoked_digests, &digest), 400);
+        Vector.push_back<bytearray>(
+                &mut copy(requester_revocation_proofs).revoked_digests,
+                move(digest)
+            );
+        return;
+    }
+
     public getCredentialProofLength(addr: address): u64 acquires LoggedProofs {
         let requester_logged_proofs: &Self.LoggedProofs;
         let len: u64;
@@ -372,6 +399,12 @@ module EarmarkedProofs {
         return move(exists);
     }
 
+    public hasRevocationProofs(addr: address): bool {
+        let exists: bool;
+        exists = exists<RevocationProofs>(move(addr));
+        return move(exists);
+    }
+
     public createIssuerLoggedProof(_owners: Vector.T<address>){
         move_to_sender<LoggedProofs>(
             LoggedProofs {
@@ -386,6 +419,13 @@ module EarmarkedProofs {
                 digest_holders: Vector.empty<Self.DigestHolder>()
             }
         );
+
+        move_to_sender<RevocationProofs>(
+            RevocationProofs {
+                revoked_digests: Vector.empty<bytearray>()
+            }
+        );
+
         return;
     }
 
@@ -559,12 +599,15 @@ module EarmarkedProofs {
 
     
     //digest - aggregated digest to verify
-    public verifyCredential(digest: bytearray, issuer: address, student: address): bool acquires DigestHolderProofs{
+    public verifyCredential(digest: bytearray, issuer: address, student: address): bool acquires DigestHolderProofs, RevocationProofs{
         let digest_student_pair_exists: bool;
         let requester_dh_proofs: &Self.DigestHolderProofs;
         let len: u64;
         let i: u64;
         let digest_holder_ref: &Self.DigestHolder;
+
+        // check if the digest is revoked
+        assert(!Self.is_digest_revoked(copy(digest), copy(issuer)), 400);
         
         // loop through digest holder proof
         // if the digest belongs to student
@@ -871,6 +914,7 @@ import 0x0.Vector;
 main() {
     let exists1: bool;
     let existsLoggedProofs: bool;
+    let existsRevocationProofs: bool;
     let sender: address;
     let ir: Issuer.IssuerResource;
     let logged_cp_len: u64;
@@ -892,13 +936,13 @@ main() {
     // register issuer(course) with university as parent
     Issuer.registerIssuer(move(owners), {{university}}, 2, 3);
     
-    // check if issuer resource exists
+    // check if issuer resource in earmarked module was created exists
     exists1 = Issuer.hasIssuerResource(copy(sender));
     assert(move(exists1), 42);
-
-    // check that issuer has logged proof resource
     existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
     assert(move(existsLoggedProofs), 42);
+    existsRevocationProofs = EarmarkedProofs.hasRevocationProofs(copy(sender));
+    assert(move(existsRevocationProofs), 42);
 
     // check that the owners are registerd to sign earmarked proofs
     has_ownership = Issuer.hasOwnership({{mathprofessor}}, copy(sender));
@@ -1080,5 +1124,26 @@ main() {
     let has_enrollment: bool;
     has_enrollment = Issuer.hasEnrollment({{student1}}, {{mathcourse}});
     assert(move(has_enrollment), 42);
+    return;
+}
+
+// Test that issuer can revoke digest
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let valid_digest: bool;
+    let aggregated_digest: bytearray;
+    let digests: Vector.T<bytearray>;
+
+    digests = Vector.empty<bytearray>();
+    Vector.push_back<bytearray>(&mut digests, h"00000001");
+    Vector.push_back<bytearray>(&mut digests, h"00000002");
+    Vector.push_back<bytearray>(&mut digests, h"00000003");
+    
+    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    
+    EarmarkedProofs.revoke_digest(move(aggregated_digest));
     return;
 }
