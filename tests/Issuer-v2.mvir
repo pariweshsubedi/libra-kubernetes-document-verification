@@ -31,8 +31,7 @@ module Proofs {
         valid : bool, // signed by quorum of owners
         revoked : bool,
         digest : bytearray,
-        credentials: Vector.T<Self.Credential>,
-        required_credentials: u64 // sign only if expected number of credentials is reached
+        credentials: Vector.T<Self.Credential>
     }
 
     resource RevocationProof {
@@ -256,7 +255,7 @@ module Proofs {
         return;
     }
 
-    public newCredentialProof(_issuer: address, _holder: address, _quorum: u64, _owners: Vector.T<address>, _required_credentials: u64): Self.CredentialProof {
+    public newCredentialProof(_issuer: address, _holder: address, _quorum: u64, _owners: Vector.T<address>): Self.CredentialProof {
         return CredentialProof{
             quorum : move(_quorum),
             holder : move(_holder),
@@ -266,7 +265,6 @@ module Proofs {
             revoked : false,
             digest : h"",
             credentials : Vector.empty<Self.Credential>(),
-            required_credentials : move(_required_credentials)
         };      
     }
 
@@ -665,8 +663,7 @@ module Issuer {
         digests : Vector.T<bytearray>,
         revoked_digests : Vector.T<bytearray>,
         nonce: u64, // counter for each issue/revoke operation because it modifies ledger state
-        quorum : u64,
-        required_credentials: u64,
+        quorum : u64
     }
 
     //--------------------------------
@@ -708,15 +705,14 @@ module Issuer {
     }
 
 
-    public registerIssuer(_owners: Vector.T<address>, _parent_issuer: address, _quorum: u64, _required_credentials: u64) {
+    public registerIssuer(_owners: Vector.T<address>, _parent_issuer: address, _quorum: u64) {
         // validate if sender already holds an issuer resource
         assert(!Self.hasIssuerResource(get_txn_sender()), 42);
         move_to_sender<IssuerResource>(
             Self.newIssuerResource(
                 copy(_owners), 
                 copy(_parent_issuer), 
-                copy(_quorum), 
-                copy(_required_credentials)
+                copy(_quorum)
             )
         );
         EarmarkedProofs.createIssuerLoggedProof(copy(_owners));
@@ -736,7 +732,7 @@ module Issuer {
     }
 
     // requested by sub issuer to register it under its parent issuer
-    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address,  _quorum: u64, _required_credentials: u64) acquires IssuerResource{
+    public registerSubIssuer(_owners: Vector.T<address>, parent_issuer: address,  _quorum: u64) acquires IssuerResource{
         let requester_account_ref: &mut Self.IssuerResource;
         assert(Self.hasIssuerResource(get_txn_sender()), 42); // only issuer can run this op.
 
@@ -744,7 +740,7 @@ module Issuer {
         requester_account_ref = borrow_global_mut<IssuerResource>(copy(parent_issuer));
         Vector.push_back<address>(&mut copy(requester_account_ref).sub_issuers, get_txn_sender());
 
-        Self.registerIssuer(copy(_owners), copy(parent_issuer),  copy(_quorum), copy(_required_credentials));
+        Self.registerIssuer(copy(_owners), copy(parent_issuer),  copy(_quorum));
         return;
     }
 
@@ -773,8 +769,7 @@ module Issuer {
             get_txn_sender(), 
             copy(holder), 
             *&copy(requester_account_ref).quorum, 
-            *&copy(requester_account_ref).owners, 
-            *&copy(requester_account_ref).required_credentials
+            *&copy(requester_account_ref).owners
         );
         
         EarmarkedProofs.registerCP(move(credential_proof));
@@ -814,7 +809,7 @@ module Issuer {
         return copy(can_sign);
     }
 
-    newIssuerResource(_owners: Vector.T<address>, parent_issuer: address, _quorum: u64, _required_credentials: u64): Self.IssuerResource {
+    newIssuerResource(_owners: Vector.T<address>, parent_issuer: address, _quorum: u64): Self.IssuerResource {
         return IssuerResource { 
             owners : move(_owners),
             sub_issuers : Vector.empty<address>(),
@@ -823,8 +818,7 @@ module Issuer {
             digests : Vector.empty<bytearray>(),
             revoked_digests : Vector.empty<bytearray>(),
             nonce : 1,
-            quorum : copy(_quorum),
-            required_credentials: copy(_required_credentials),
+            quorum : copy(_quorum)
         };
     }
 
@@ -866,7 +860,6 @@ main() {
         move(owners), // _owners
         0x00, // _parent_issuer
         2, // _quorum
-        2 // required number of credentials in CP
     );
     
     // check if issuer resource exists
@@ -934,7 +927,7 @@ main() {
     assert(move(existsLoggedProofs) == false, 42);
     
     // register issuer(course) with university as parent
-    Issuer.registerIssuer(move(owners), {{university}}, 2, 3);
+    Issuer.registerIssuer(move(owners), {{university}}, 2);
     
     // check if issuer resource in earmarked module was created exists
     exists1 = Issuer.hasIssuerResource(copy(sender));
