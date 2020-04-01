@@ -546,20 +546,21 @@ module EarmarkedProofs {
 
     public aggregateProofs(digests: vector<vector<u8>>): vector<u8>{
         let aggregated_digest: vector<u8>;
+        // let aggregated_digest_mut: &mut vector<u8>;
         let digests_mut: &mut vector<vector<u8>>;
         let digest: vector<u8>;
         let len: u64;
         let i: u64;
 
         aggregated_digest = h"";
+
         digests_mut = &mut digests;
         i = 0;
         len = Vector.length<vector<u8>>(freeze(copy(digests_mut)));
 
         loop {
             digest = *Vector.borrow_mut<vector<u8>>(copy(digests_mut), copy(i));
-            // TODO : figure out bytearray concat in new move version
-            // aggregated_digest = BytearrayUtil.bytearray_concat(copy(aggregated_digest), copy(digest));
+            Vector.append<u8>(&mut aggregated_digest, copy(digest));
 
             i = copy(i) + 1;
             if (copy(i) >= copy(len)) {
@@ -841,209 +842,207 @@ module Issuer {
 }
 
 
-// // Test that a university can register
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Issuer;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     let existsLoggedProofs: bool;
-//     let sender: address;
-//     let owners: Vector<address>;
+// Test that a university can register
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Issuer;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let existsLoggedProofs: bool;
+    let sender: address;
+    let owners: vector<address>;
 
-//     // check if issuer resource exists
-//     exists1 = Issuer.hasIssuerResource({{university}});
-//     assert(move(exists1) == false, 42);
+    // check if issuer resource exists
+    exists1 = Issuer.hasIssuerResource({{university}});
+    assert(move(exists1) == false, 42);
     
-//     // define owners
-//     owners = Vector.empty<address>();
-//     Vector.push_back<address>(&mut owners, {{mathprofessor}});
-//     Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    // define owners
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
     
-//     // register issuer with no parent
-//     Issuer.registerIssuer(
-//         move(owners), // _owners
-//         0x00, // _parent_issuer
-//         2, // _quorum
-//     );
+    // register issuer with no parent
+    Issuer.registerIssuer(
+        move(owners), // _owners
+        0x00, // _parent_issuer
+        2, // _quorum
+    );
     
-//     // check if issuer resource exists
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
+    // check if issuer resource exists
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
 
-//     // check that issuer has logged proof resource
-//     existsLoggedProofs = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(existsLoggedProofs), 42);
+    // check that issuer has logged proof resource
+    existsLoggedProofs = Issuer.hasIssuerResource(copy(sender));
+    assert(move(existsLoggedProofs), 42);
 
-//     return;
-// }
+    return;
+}
 
-// // Test that a holder(student) can register in a university
-// //! new-transaction
-// //! sender: student1
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.Proofs;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     // check if issuer resource exists
-//     exists1 = Proofs.hasCredentialAccount(get_txn_sender());
-//     assert(copy(exists1) == false, 42);
+// Test that a holder(student) can register in a university
+//! new-transaction
+//! sender: student1
+import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
+main() {
+    let exists1: bool;
+    // check if issuer resource exists
+    exists1 = Proofs.hasCredentialAccount(get_txn_sender());
+    assert(copy(exists1) == false, 42);
 
-//     //register to a university
-//     Issuer.initHolder({{university}});
+    //register to a university
+    Issuer.initHolder({{university}});
     
-//     // check if credential account is created after registration
-//     exists1 = Proofs.hasCredentialAccount(get_txn_sender());
-//     assert(move(exists1), 42);
+    // check if credential account is created after registration
+    exists1 = Proofs.hasCredentialAccount(get_txn_sender());
+    assert(move(exists1), 42);
     
-//     return;
-// }
+    return;
+}
 
 
-// // Test that a course can be registered
-// //! new-transaction
-// //! sender: mathcourse
-// import {{bbchain}}.Proofs;
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.EarmarkedProofs;
-// import 0x0.Vector;
-// main() {
-//     let exists1: bool;
-//     let existsLoggedProofs: bool;
-//     let existsRevocationProofs: bool;
-//     let sender: address;
-//     let ir: Issuer.IssuerResource;
-//     let logged_cp_len: u64;
-//     let has_ownership: bool;
+// Test that a course can be registered
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let exists1: bool;
+    let existsLoggedProofs: bool;
+    let existsRevocationProofs: bool;
+    let sender: address;
+    let ir: Issuer.IssuerResource;
+    let logged_cp_len: u64;
+    let has_ownership: bool;
     
-//     let owners: Vector<address>;
-//     owners = Vector.empty<address>();
-//     Vector.push_back<address>(&mut owners, {{mathprofessor}});
-//     Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    let owners: vector<address>;
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
 
-//     sender = get_txn_sender();
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1) == false, 42);
+    sender = get_txn_sender();
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1) == false, 42);
 
-//     // check that issuer has logged proof resource
-//     existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
-//     assert(move(existsLoggedProofs) == false, 42);
+    // check that issuer has logged proof resource
+    existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
+    assert(move(existsLoggedProofs) == false, 42);
     
-//     // register issuer(course) with university as parent
-//     Issuer.registerIssuer(move(owners), {{university}}, 2);
+    // register issuer(course) with university as parent
+    Issuer.registerIssuer(move(owners), {{university}}, 2);
     
-//     // check if issuer resource in earmarked module was created exists
-//     exists1 = Issuer.hasIssuerResource(copy(sender));
-//     assert(move(exists1), 42);
-//     existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
-//     assert(move(existsLoggedProofs), 42);
-//     existsRevocationProofs = EarmarkedProofs.hasRevocationProofs(copy(sender));
-//     assert(move(existsRevocationProofs), 42);
+    // check if issuer resource in earmarked module was created exists
+    exists1 = Issuer.hasIssuerResource(copy(sender));
+    assert(move(exists1), 42);
+    existsLoggedProofs = EarmarkedProofs.hasLoggedProofs(copy(sender));
+    assert(move(existsLoggedProofs), 42);
+    existsRevocationProofs = EarmarkedProofs.hasRevocationProofs(copy(sender));
+    assert(move(existsRevocationProofs), 42);
 
-//     // check that the owners are registerd to sign earmarked proofs
-//     has_ownership = Issuer.hasOwnership({{mathprofessor}}, copy(sender));
-//     assert(copy(has_ownership), 123);
-//     has_ownership = EarmarkedProofs.hasOwnership({{mathprofessor}}, copy(sender));
-//     assert(move(has_ownership), 123);
-//     has_ownership = Issuer.hasOwnership({{mathevaluator}}, copy(sender));
-//     assert(copy(has_ownership), 123);
-//     has_ownership = EarmarkedProofs.hasOwnership({{mathevaluator}}, copy(sender));
-//     assert(move(has_ownership), 123);
+    // check that the owners are registerd to sign earmarked proofs
+    has_ownership = Issuer.hasOwnership({{mathprofessor}}, copy(sender));
+    assert(copy(has_ownership), 123);
+    has_ownership = EarmarkedProofs.hasOwnership({{mathprofessor}}, copy(sender));
+    assert(move(has_ownership), 123);
+    has_ownership = Issuer.hasOwnership({{mathevaluator}}, copy(sender));
+    assert(copy(has_ownership), 123);
+    has_ownership = EarmarkedProofs.hasOwnership({{mathevaluator}}, copy(sender));
+    assert(move(has_ownership), 123);
 
-//     // register student to course
-//     Issuer.registerHolder({{student1}});
+    // register student to course
+    Issuer.registerHolder({{student1}});
 
-//     // check if a credential proof is registered in earmarked proof
-//     logged_cp_len = EarmarkedProofs.getCredentialProofLength(copy(sender));
-//     assert(move(logged_cp_len) == 1, 49);
+    // check if a credential proof is registered in earmarked proof
+    logged_cp_len = EarmarkedProofs.getCredentialProofLength(copy(sender));
+    assert(move(logged_cp_len) == 1, 49);
 
-//     return;
-// }
+    return;
+}
 
-// // Register Credential for student
-// //! new-transaction
-// //! sender: mathcourse
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.EarmarkedProofs;
-// import 0x0.Vector;
-// main() {
-//     let logged_cp_len: u64;
-//     Issuer.registerCredential({{student1}}, h"00000001") ;
-//     Issuer.registerCredential({{student1}}, h"00000002") ;
-//     Issuer.registerCredential({{student1}}, h"00000003") ;
+// Register Credential for student
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    let logged_cp_len: u64;
+    Issuer.registerCredential({{student1}}, h"00000001") ;
+    Issuer.registerCredential({{student1}}, h"00000002") ;
+    Issuer.registerCredential({{student1}}, h"00000003") ;
 
-//     // check if a credential is registered in earmarked proof
-//     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
-//     assert(move(logged_cp_len) == 3, 49);
+    // check if a credential is registered in earmarked proof
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+    assert(move(logged_cp_len) == 3, 49);
 
-//     return;
-// }
+    return;
+}
 
-// // Signing non existent credential should result in error
-// //! new-transaction
-// //! sender: mathprofessor
-// import {{bbchain}}.Issuer;
-// main() {
-//     Issuer.signCredential({{mathcourse}}, h"0000000100");
-//     return;
-// }
-// // check: ABORTED
+// Signing non existent credential should result in error
+//! new-transaction
+//! sender: mathprofessor
+import {{bbchain}}.Issuer;
+main() {
+    Issuer.signCredential({{mathcourse}}, h"0000000100");
+    return;
+}
+// check: ABORTED
 
-// // Signing as non owner result in error
-// //! new-transaction
-// //! sender: university
-// import {{bbchain}}.Issuer;
-// main() {
-//     Issuer.signCredential({{mathcourse}}, h"00000001");
-//     return;
-// }
-// // check: ABORTED
+// Signing as non owner result in error
+//! new-transaction
+//! sender: university
+import {{bbchain}}.Issuer;
+main() {
+    Issuer.signCredential({{mathcourse}}, h"00000001");
+    return;
+}
+// check: ABORTED
 
-// // Sign Credential as owner
-// //! new-transaction
-// //! sender: mathprofessor
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.EarmarkedProofs;
-// main() {
-//     let logged_cp_len: u64;
+// Sign Credential as owner
+//! new-transaction
+//! sender: mathprofessor
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    let logged_cp_len: u64;
     
-//     Issuer.signCredential({{mathcourse}}, h"00000001");
-//     Issuer.signCredential({{mathcourse}}, h"00000002");
-//     Issuer.signCredential({{mathcourse}}, h"00000003");
+    Issuer.signCredential({{mathcourse}}, h"00000001");
+    Issuer.signCredential({{mathcourse}}, h"00000002");
+    Issuer.signCredential({{mathcourse}}, h"00000003");
 
-//     // check if a credential still under credentials
-//     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
-//     assert(move(logged_cp_len) == 3, 49);
+    // check if a credential still under credentials
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+    assert(move(logged_cp_len) == 3, 49);
 
-//     return;
-// }
+    return;
+}
 
-// // Sign Credential as owner
-// //! new-transaction
-// //! sender: mathevaluator
-// import {{bbchain}}.Issuer;
-// import {{bbchain}}.EarmarkedProofs;
-// main() {
-//     let logged_c_len: u64;
-//     let logged_cp_len: u64;
+// Sign Credential as owner
+//! new-transaction
+//! sender: mathevaluator
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    let logged_c_len: u64;
+    let logged_cp_len: u64;
     
-//     Issuer.signCredential({{mathcourse}}, h"00000001");
-//     Issuer.signCredential({{mathcourse}}, h"00000002");
-//     Issuer.signCredential({{mathcourse}}, h"00000003");
+    Issuer.signCredential({{mathcourse}}, h"00000001");
+    Issuer.signCredential({{mathcourse}}, h"00000002");
+    Issuer.signCredential({{mathcourse}}, h"00000003");
 
-//     logged_c_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
-//     // when quorum has signed the credential should be moved to credential proof
-//     assert(move(logged_c_len) == 0, 49);
+    logged_c_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
+    // when quorum has signed the credential should be moved to credential proof
+    assert(move(logged_c_len) == 0, 49);
 
-//     // number of credential proof should still be one, 
-//     // it is only the credentials that were moved to CP when signed by owners
-//     logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
-//     assert(move(logged_cp_len) == 1, 49);
-//     return;
-// }
+    // number of credential proof should still be one, 
+    // it is only the credentials that were moved to CP when signed by owners
+    logged_cp_len = EarmarkedProofs.getCredentialProofLength({{mathcourse}});
+    assert(move(logged_cp_len) == 1, 49);
+    return;
+}
 
 
 // // Test that a holder(student) can claim credential proof
