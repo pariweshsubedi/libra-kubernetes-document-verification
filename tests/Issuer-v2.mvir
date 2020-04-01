@@ -637,6 +637,11 @@ module EarmarkedProofs {
         LibraAccount.destroy_handle<Self.MyEvent>(move(handle));
         return;
     }
+
+    // Aggregate credential proof as a root issuer
+    public aggregateCredentialProofs(holder:address){
+        return;
+    }
 }
 
 //! new-transaction
@@ -724,7 +729,7 @@ module Issuer {
         assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
         assert(!Proofs.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential wallet
         // TODO : check that the issuer has issuer resource
-
+ 
         Self.addHolder(get_txn_sender(), copy(_issuer));
         Proofs.newCredentialAccount(move(_issuer), get_txn_sender());
         
