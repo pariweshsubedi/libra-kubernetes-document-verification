@@ -61,8 +61,16 @@ module Proofs {
         return move(len);
     }
 
-    public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof) acquires CredentialAccount{
+    setCredentialProofDigest(credential_proof : &mut Self.CredentialProof, digest: bytearray){
+        *&mut copy(credential_proof).digest = copy(digest);
+        return;
+    }
+
+    public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof, aggregation: bytearray) acquires CredentialAccount{
         let credential_account_ref: &mut Self.CredentialAccount;
+        
+        // *&mut copy(credential_proof).digest = h"";
+        Self.setCredentialProofDigest(&mut credential_proof, copy(aggregation));
 
         // TODO : check if credential is valid
         credential_account_ref = borrow_global_mut<CredentialAccount>(get_txn_sender());
@@ -522,6 +530,7 @@ module EarmarkedProofs {
         let credential_proof_ref: &Proofs.CredentialProof;
         let requester_logged_proofs: &mut Self.LoggedProofs;
         let sender_address: address;
+        let aggregation: bytearray;
         sender_address = get_txn_sender();
 
         //TODO: validate that issuer knows the sender (in issuerresource.holders)
@@ -535,10 +544,10 @@ module EarmarkedProofs {
         credential_proof = Vector.remove_unstable<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
         // save digest as digest holder proof
-        Self.createDigestHolderProof(&credential_proof, copy(issuer));
+        aggregation = Self.createDigestHolderProof(&mut credential_proof, copy(issuer));
 
         // move credential proof to holder account
-        Proofs.moveCredentialsProofToAccount(move(credential_proof));
+        Proofs.moveCredentialsProofToAccount(move(credential_proof),move(aggregation));
 
         return;
     }
@@ -570,29 +579,31 @@ module EarmarkedProofs {
     }
 
 
-    createDigestHolderProof(credential_proof : &Proofs.CredentialProof, issuer: address) acquires DigestHolderProofs{
+    createDigestHolderProof(credential_proof : &mut Proofs.CredentialProof, issuer: address): bytearray acquires DigestHolderProofs{
         let digests: Vector.T<bytearray>;
         let digest_holder: Self.DigestHolder;
         let requester_dh_proofs: &mut Self.DigestHolderProofs;
         let holder: address;
+        let aggregation: bytearray;
 
         requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(copy(issuer));
 
-        holder = Proofs.getCredentialProofHolder(copy(credential_proof));
-        digests = Proofs.getCredentialProofDigests(copy(credential_proof));
+        holder = Proofs.getCredentialProofHolder(freeze(copy(credential_proof)));
+        digests = Proofs.getCredentialProofDigests(freeze(copy(credential_proof)));
+        aggregation = Self.aggregateProofs(copy(digests));
         
         digest_holder = DigestHolder {
             digests : copy(digests),
             holder : move(holder),
-            aggregation : Self.aggregateProofs(copy(digests))
+            aggregation : copy(aggregation)
         };
 
         Vector.push_back<Self.DigestHolder>(
             &mut copy(requester_dh_proofs).digest_holders, 
-            move(digest_holder)
+            copy(digest_holder)
         );
 
-        return;
+        return copy(aggregation);
     }
 
     
