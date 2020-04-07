@@ -11,6 +11,7 @@
 //! sender: bbchain
 module Proofs {
     import 0x0.Vector;
+    import 0x0.BytearrayUtil;
 
     struct Credential{
         digest : bytearray,
@@ -305,6 +306,31 @@ module Proofs {
         return move(digests);
     }
 
+    public aggregateProofs(digests: Vector.T<bytearray>): bytearray{
+        let aggregated_digest: bytearray;
+        let digests_mut: &mut Vector.T<bytearray>;
+        let digest: bytearray;
+        let len: u64;
+        let i: u64;
+
+        aggregated_digest = h"";
+        digests_mut = &mut digests;
+        i = 0;
+        len = Vector.length<bytearray>(freeze(copy(digests_mut)));
+
+        loop {
+            digest = *Vector.borrow_mut<bytearray>(copy(digests_mut), copy(i));
+            aggregated_digest = BytearrayUtil.bytearray_concat(copy(aggregated_digest), copy(digest));
+
+            i = copy(i) + 1;
+            if (copy(i) >= copy(len)) {
+                break;
+            }
+        }
+        
+        return move(aggregated_digest);
+    }
+
 }
 
 
@@ -316,7 +342,7 @@ module EarmarkedProofs {
     import 0x0.Vector;
     import 0x0.LibraAccount;
     // import 0x0.Hash;
-    import 0x0.BytearrayUtil;
+    
 
     struct MyEvent { 
         b: bool 
@@ -553,32 +579,6 @@ module EarmarkedProofs {
     }
 
 
-    public aggregateProofs(digests: Vector.T<bytearray>): bytearray{
-        let aggregated_digest: bytearray;
-        let digests_mut: &mut Vector.T<bytearray>;
-        let digest: bytearray;
-        let len: u64;
-        let i: u64;
-
-        aggregated_digest = h"";
-        digests_mut = &mut digests;
-        i = 0;
-        len = Vector.length<bytearray>(freeze(copy(digests_mut)));
-
-        loop {
-            digest = *Vector.borrow_mut<bytearray>(copy(digests_mut), copy(i));
-            aggregated_digest = BytearrayUtil.bytearray_concat(copy(aggregated_digest), copy(digest));
-
-            i = copy(i) + 1;
-            if (copy(i) >= copy(len)) {
-                break;
-            }
-        }
-        
-        return move(aggregated_digest);
-    }
-
-
     createDigestHolderProof(credential_proof : &mut Proofs.CredentialProof, issuer: address): bytearray acquires DigestHolderProofs{
         let digests: Vector.T<bytearray>;
         let digest_holder: Self.DigestHolder;
@@ -590,7 +590,7 @@ module EarmarkedProofs {
 
         holder = Proofs.getCredentialProofHolder(freeze(copy(credential_proof)));
         digests = Proofs.getCredentialProofDigests(freeze(copy(credential_proof)));
-        aggregation = Self.aggregateProofs(copy(digests));
+        aggregation = Proofs.aggregateProofs(copy(digests));
         
         digest_holder = DigestHolder {
             digests : copy(digests),
@@ -1079,6 +1079,7 @@ main() {
 //! new-transaction
 //! sender: verifier
 import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
 import {{bbchain}}.EarmarkedProofs;
 import 0x0.Vector;
 main() {
@@ -1091,7 +1092,7 @@ main() {
     Vector.push_back<bytearray>(&mut digests, h"00000002");
     Vector.push_back<bytearray>(&mut digests, h"00000003");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateProofs(move(digests));
     
     valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
     assert(copy(valid_digest), 49);
@@ -1135,6 +1136,7 @@ main() {
 //! new-transaction
 //! sender: mathcourse
 import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
 import 0x0.Vector;
 main() {
     let valid_digest: bool;
@@ -1146,7 +1148,7 @@ main() {
     Vector.push_back<bytearray>(&mut digests, h"00000002");
     Vector.push_back<bytearray>(&mut digests, h"00000003");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateProofs(move(digests));
     
     EarmarkedProofs.revoke_digest(move(aggregated_digest));
     return;
@@ -1157,6 +1159,7 @@ main() {
 //! sender: verifier
 import {{bbchain}}.Issuer;
 import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
 import 0x0.Vector;
 main() {
     let valid_digest: bool;
@@ -1168,7 +1171,7 @@ main() {
     Vector.push_back<bytearray>(&mut digests, h"00000002");
     Vector.push_back<bytearray>(&mut digests, h"00000003");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateProofs(move(digests));
     
     valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
     return;
