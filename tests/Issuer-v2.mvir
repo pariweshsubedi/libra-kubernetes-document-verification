@@ -333,21 +333,22 @@ module Proofs {
         return move(aggregated_digest);
     }
 
-    // compiles credential proof of a credential account
-    public compileCredentialProof(holder:address) acquires CredentialAccount{
+    // aggregates digests in a credential account
+    public compileCredentialProof(holder:address): Vector.T<bytearray>*bytearray acquires CredentialAccount{
         let credential_account_ref: &mut Self.CredentialAccount;
+        let digests: Vector.T<bytearray>;
+        let aggregated_digest : bytearray;
         
         credential_account_ref = borrow_global_mut<CredentialAccount>(copy(holder));
         assert(*&copy(credential_account_ref).issuer == get_txn_sender(), 90);
         
-        *&mut copy(credential_account_ref).digest = Self.aggregateCredentialProofs(&copy(credential_account_ref).credential_proofs);
-        
-
-        return;
+        digests, aggregated_digest = Self.aggregateCredentialProofs(&copy(credential_account_ref).credential_proofs);
+        *&mut copy(credential_account_ref).digest = copy(aggregated_digest);
+        return copy(digests), copy(aggregated_digest);
     }
 
     // aggregate credential proof digests
-    public aggregateCredentialProofs(credential_proofs: &Vector.T<Self.CredentialProof>): bytearray{
+    public aggregateCredentialProofs(credential_proofs: &Vector.T<Self.CredentialProof>): Vector.T<bytearray>*bytearray{
         let digests: Vector.T<bytearray>;
         let credential_proof_ref: &Self.CredentialProof;
         let len: u64;
@@ -367,7 +368,7 @@ module Proofs {
             
             i = move(i) + 1;
         }
-        return Self.aggregateDigests(copy(digests));
+        return copy(digests), Self.aggregateDigests(copy(digests));
     }
 
 }
@@ -678,6 +679,28 @@ module EarmarkedProofs {
         return false;
     }
 
+    public generateCredentialAccountDigest(holder:address) acquires DigestHolderProofs{
+        let digests: Vector.T<bytearray>;
+        let aggregated_digest : bytearray;
+        let requester_dh_proofs: &mut Self.DigestHolderProofs;
+        let digest_holder: Self.DigestHolder;
+        
+        requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(get_txn_sender());
+        digests, aggregated_digest = Proofs.compileCredentialProof(copy(holder));
+        
+        digest_holder = DigestHolder {
+            digests : copy(digests),
+            holder : copy(holder),
+            aggregation : copy(aggregated_digest)
+        };
+
+        Vector.push_back<Self.DigestHolder>(
+            &mut copy(requester_dh_proofs).digest_holders, 
+            copy(digest_holder)
+        );
+        return;
+    }
+
 
     // Events
     public emit_event(val: bool) {
@@ -719,6 +742,13 @@ module Issuer {
     //--------------------------------
     // Methods
     //--------------------------------
+
+    // Can only be invoked by credential account issuer. Ex: uni
+    public generateCredentialAccountDigest(holder:address){
+        assert(!Self.hasIssuerResource(get_txn_sender()), 42);
+        EarmarkedProofs.generateCredentialAccountDigest(copy(holder));
+        return;
+    }
 
     public signCredential(issuer: address, digest: bytearray){
         let requester_account_ref: &mut Self.IssuerResource;
