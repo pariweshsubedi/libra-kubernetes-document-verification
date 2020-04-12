@@ -36,23 +36,12 @@ module Proofs {
         credentials: Vector.T<Self.Credential>
     }
 
-    resource RevocationProof {
-        credentialProof: Self.CredentialProof,
-        reason: bytearray,
-        nonce: u64 // counter from issuer
-    }
-
     // stored with holder
     resource CredentialAccount{
         issuer : address,
         holder : address,
         credential_proofs : Vector.T<Self.CredentialProof>,
         digest : bytearray, // represents final degree
-    }
-
-    // stored with issuer
-    resource RevocationProofs{
-        credential_proofs : Vector.T<Self.RevocationProof>   
     }
 
     public getCredentialAccountProofLength(): u64 acquires CredentialAccount {
