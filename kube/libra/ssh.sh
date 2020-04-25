@@ -1,0 +1,1 @@
+kubectl exec -it val-0 -c main -- /bin/bash
