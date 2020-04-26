@@ -1,7 +1,8 @@
 # ./client.sh <validator-IP>
-VALIDATOR="${1:-http://192.168.64.4}"
+NODE="${1:-http://192.168.64.4}"
+VALIDATOR_IP=$NODE":30080/"
+FAUCET_IP=$NODE":30009/"
 
-BASEDIR=
 CLIENT_DIR="$(pwd)/$line"
 KEY_FILE="$CLIENT_DIR./client/cli.key"
 
@@ -10,4 +11,4 @@ touch KEY_FILE
 
 cd $HOME/libra
 cargo run -p generate-keypair -- -o $KEY_FILE
-cargo run -p cli --bin cli -- -u $VALIDATOR:8080 -f $VALIDATOR:9080 -m $KEY_FILE
+cargo run -p cli --bin cli -- -u $VALIDATOR_IP -f $FAUCET_IP -m $KEY_FILE

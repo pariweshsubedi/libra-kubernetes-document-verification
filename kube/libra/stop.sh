@@ -1,2 +1,1 @@
-kubectl delete pods val-0
-kubectl delete pods libra-faucet
+kubectl delete pods val-0 val-1 libra-faucet

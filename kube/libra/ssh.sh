@@ -1,1 +1,2 @@
-kubectl exec -it val-0 -c main -- /bin/bash
+VALIDATOR="${1:-val-0}"
+kubectl exec -it $VALIDATOR -c main -- /bin/bash
