@@ -32,11 +32,5 @@ sed 's/\[ac_host\]/'$FIRST_VALIDATOR_IP'/g' $FAUCET_TEMPLATE > $FAUCET_YAML;
 
 kubectl create -f $FAUCET_YAML;
 
-# # check that all validator nodes are up
-# until [ $(kubectl get pods -l app=libra-validator | grep ^val | grep -e main -e Running | wc -l) = "$NUMBER_OF_VALIDATORS" ]; do
-#     sleep 10;
-#     echo "Waiting for all validator pods to be scheduled";
-# done
-
-# #create faucet node
-# kubectl create -f faucet-node.yaml 
+## enable services
+kubectl apply -f services/

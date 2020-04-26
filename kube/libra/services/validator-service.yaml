@@ -4,7 +4,7 @@ metadata:
   name: validator-service
 spec:
   selector: 
-    app: libra-validator
+    libra-validator-index: val-0-val
   type: NodePort
   ports:
     - name : val8000

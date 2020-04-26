@@ -5,6 +5,7 @@ metadata:
   labels:
     app: libra-validator
     libra-node: "true"
+    libra-validator-index: "val-[validator_index]-val"
   annotations:
     prometheus.io/should_be_scraped: "true"
 spec:
