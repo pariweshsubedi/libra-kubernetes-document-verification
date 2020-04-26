@@ -3,7 +3,7 @@ set -x
 # create validator
 
 j="0";
-NUMBER_OF_VALIDATORS="1";
+NUMBER_OF_VALIDATORS="2";
 VALIDATOR_TEMPLATE="template/validator.tmpl.yaml";
 FAUCET_TEMPLATE="template/faucet.tmpl.yaml";
 

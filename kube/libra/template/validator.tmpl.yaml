@@ -15,7 +15,7 @@ spec:
     image: pariwesh/thesis:libra_init
     volumeMounts:
     - mountPath: /opt/libra/data
-      name: data
+      name: data-[validator_index]
     securityContext:
       runAsUser: 0 # To get permissions to write to /opt/libra/data
     command:
@@ -24,9 +24,9 @@ spec:
     - |
       set -x;
       # clear data when initiating first validator
-      if [ "0" == "[validator_index]" ]; then
-        rm -rf /opt/libra/data/*
-      fi
+      # if [ "0" == "[validator_index]" ]; then
+      # fi
+      rm -rf /opt/libra/data/*
       CFG_SEED_PEER_IP=$(kubectl get pod/val-0 -o=jsonpath='{.status.podIP}');
       NUM_VALIDATORS=[number_of_validators];
       while [ -z "$CFG_SEED_PEER_IP" ]; do
@@ -56,7 +56,9 @@ spec:
     - containerPort: 9102
     volumeMounts:
     - mountPath: /opt/libra/data
-      name: data
+      name: data-[validator_index]
+    securityContext:
+      runAsUser: 0 # To get permissions to write to /opt/libra/data
     env:
     - name: CFG_NODE_INDEX
       value: "[validator_index]"
@@ -87,6 +89,7 @@ spec:
         set -x;
         export CFG_LISTEN_ADDR=$MY_POD_IP;
         export CFG_SEED_PEER_IP=$(cat /opt/libra/data/seed_peer_ip);
+        #apt-get update && apt-get install vim -y
         # if [ "$CFG_LISTEN_ADDR" == "$CFG_SEED_PEER_IP" ]; then
         #     echo "I am validator 0";
         # else
@@ -95,13 +98,15 @@ spec:
         #       echo "sleeping";
         #     done
         # fi
-        exec bash /docker-run-dynamic.sh &> /opt/libra/data/libra.log
+        exec bash /docker-run-dynamic.sh
   - name: safety-rules
     image: pariwesh/thesis:libra_safety_rules
     imagePullPolicy: IfNotPresent
     volumeMounts:
     - mountPath: /opt/libra/data
-      name: data
+      name: data-[validator_index]
+    securityContext:
+      runAsUser: 0 # To get permissions to write to /opt/libra/data
     env:
     - name: CFG_NODE_INDEX
       value: "[validator_index]"
@@ -113,6 +118,8 @@ spec:
       value: "127.0.0.1:6185"
     - name: PUSH_METRICS_ENDPOINT
       value: ""
+    - name: "CFG_OVERRIDES"
+      value: 'path="/opt/libra/data/common/safety_rules.toml"'
     - name: RUST_LOG
       value: "info"
     command:
@@ -120,12 +127,10 @@ spec:
       - "-c"
       - |
         set -x;
-        exec bash /docker-run-dynamic.sh &> /opt/libra/data/libra.log
+        exec bash /docker-run-dynamic.sh
   volumes:
-  - name: data
-    hostPath:
-      path: /data
-      type: Directory
+  - name: data-[validator_index]
+    emptyDir: {}
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
