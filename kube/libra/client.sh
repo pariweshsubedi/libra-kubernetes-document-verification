@@ -7,7 +7,6 @@ CLIENT_DIR="$(pwd)/$line"
 KEY_FILE="$CLIENT_DIR./client/cli.key"
 
 mkdir $CLIENT_DIR
-touch KEY_FILE
 
 cd $HOME/libra
 cargo run -p generate-keypair -- -o $KEY_FILE
