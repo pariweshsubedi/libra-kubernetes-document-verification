@@ -3,5 +3,6 @@ kubectl delete service faucet-service validator-service prometheus-service -n lo
 
 # remove prometheus deployment
 kubectl delete deployment prometheus-deployment --namespace=localnet
+kubectl delete deployment grafana --namespace=localnet
 
 rm -rf generated/*

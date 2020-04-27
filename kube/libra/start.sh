@@ -1,10 +1,10 @@
 #!/bin/bash
 set -x
-# create validator
 
 NUMBER_OF_VALIDATORS="1";
 VALIDATOR_TEMPLATE="template/validator.tmpl.yaml";
 FAUCET_TEMPLATE="template/faucet.tmpl.yaml";
+GRAPHANA_DATASOURCE_TEMPLATE="template/grafana/grafana-datasource-config.tmpl.yaml";
 
 #apply namespace
 kubectl apply -f namespace.yaml
@@ -44,3 +44,18 @@ kubectl apply -f services/
 ## enable monitoring
 echo "-------- STARTING MONITORING --------"
 kubectl apply -f prometheus/
+
+## enable grafana
+echo "-------- STARTING GRAFANA --------"
+GRAPHANA_DATASOURCE_YAML="./generated/grafana-datasource-config.yaml";
+# wait for prometheus pod
+PROMETHEUS_IP="";
+while [ -z "$PROMETHEUS_IP" ]; do
+    sleep 5;
+    PROMETHEUS_IP="$(kubectl get pods --namespace=localnet -o wide |grep -i "prometheus"|awk '{print $6;}')";
+    echo "Waiting for prometheus data source";
+done;
+
+sed 's/\[prometheus_ip\]/'$PROMETHEUS_IP'/g' $GRAPHANA_DATASOURCE_TEMPLATE > $GRAPHANA_DATASOURCE_YAML;
+kubectl create -f $GRAPHANA_DATASOURCE_YAML
+kubectl create -f grafana/
