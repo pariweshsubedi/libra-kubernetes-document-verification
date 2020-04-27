@@ -9,6 +9,8 @@ metadata:
     libra-validator-index: "val-[validator_index]-val"
   annotations:
     prometheus.io/should_be_scraped: 'true'
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9101'
 spec:
   nodeName: "minikube"
   initContainers:

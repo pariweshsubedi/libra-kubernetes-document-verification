@@ -5,6 +5,7 @@ NUMBER_OF_VALIDATORS="1";
 VALIDATOR_TEMPLATE="template/validator.tmpl.yaml";
 FAUCET_TEMPLATE="template/faucet.tmpl.yaml";
 GRAPHANA_DATASOURCE_TEMPLATE="template/grafana/grafana-datasource-config.tmpl.yaml";
+PROMETHEUS_SCRAPER_TEMPLATE="template/prometheus/config-map.tmpl.yaml"
 
 #apply namespace
 kubectl apply -f namespace.yaml
@@ -59,3 +60,20 @@ kubectl create -f grafana/
 ## enable services
 echo "-------- STARTING SERVICES --------"
 kubectl apply -f services/
+
+## enable prometheus scraper
+PROMETHEUS_VALIDATOR_TEXT=""
+PROMETHEUS_SCRAPER_YAML="./generated/prometheus-config-map.yaml";
+
+j="0";
+while [ $j -lt $NUMBER_OF_VALIDATORS ]
+do
+		VALIP=$(kubectl get pod/val-${j} -n localnet -o=jsonpath='{.status.podIP}');
+		PROMETHEUS_VALIDATOR_TEXT=$PROMETHEUS_VALIDATOR_TEXT's/\[val_0_index\]/'$j'/g;s/\[val_0_ip\]/'$VALIP'/g;'
+    j=$[$j+1];
+done
+
+sed $PROMETHEUS_VALIDATOR_TEXT $PROMETHEUS_SCRAPER_TEMPLATE > $PROMETHEUS_SCRAPER_YAML;
+
+# apply prometheus config scraper
+kubectl apply -f $PROMETHEUS_SCRAPER_YAML

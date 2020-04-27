@@ -8,6 +8,8 @@ metadata:
     libra-node: "true"
   annotations:
     prometheus.io/should_be_scraped: 'true'
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9080'
 spec:
   containers:
   - name: faucet

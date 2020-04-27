@@ -24,6 +24,13 @@ spec:
           requests: 
             memory: "1Gi"
             cpu: "50m"
+        env:
+          - name: GF_AUTH_ANONYMOUS_ENABLED
+            value: "true"
+          - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+            value: "Admin"
+          - name: GF_SECURITY_ALLOW_EMBEDDING
+            value: "true"
         volumeMounts:
           - mountPath: /var/lib/grafana
             name: grafana-storage
