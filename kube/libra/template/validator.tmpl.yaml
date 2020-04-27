@@ -118,7 +118,7 @@ spec:
     - name: CFG_SAFETY_RULES_LISTEN_ADDR
       value: "127.0.0.1:6185"
     - name: PUSH_METRICS_ENDPOINT
-      value: ""
+      value: "http://[prometheus_pushgateway]:9091/metrics/job/safety_rules/role/validator/peer_id/val-[validator_index]"
     - name: "CFG_OVERRIDES"
       value: 'path="/opt/libra/data/common/safety_rules.toml"'
     - name: RUST_LOG

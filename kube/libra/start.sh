@@ -9,6 +9,18 @@ GRAPHANA_DATASOURCE_TEMPLATE="template/grafana/grafana-datasource-config.tmpl.ya
 #apply namespace
 kubectl apply -f namespace.yaml
 
+## enable monitoring
+echo "-------- STARTING MONITORING SERVICES --------"
+kubectl apply -f prometheus/
+
+# wait for prometheus pod
+PROMETHEUS_IP="";
+while [ -z "$PROMETHEUS_IP" ]; do
+    sleep 5;
+    PROMETHEUS_IP="$(kubectl get pods --namespace=localnet -o wide |grep -i "prometheus"|awk '{print $6;}')";
+    echo "Waiting for prometheus data source";
+done;
+
 # start validators
 echo "-------- STARTING VALIDATORS --------"
 j="0";
@@ -16,7 +28,7 @@ while [ $j -lt $NUMBER_OF_VALIDATORS ]
 do
     VALIDATOR_YAML="generated/validator-node-$j.yaml";
     # generate file
-    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
+    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g;s/\[prometheus_pushgateway\]/'$PROMETHEUS_IP'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
     # start pod
     kubectl create -f ./generated/validator-node-$j.yaml;
     j=$[$j+1];
@@ -37,25 +49,13 @@ sed 's/\[ac_host\]/'$FIRST_VALIDATOR_IP'/g' $FAUCET_TEMPLATE > $FAUCET_YAML;
 
 kubectl create -f $FAUCET_YAML;
 
-## enable services
-echo "-------- STARTING SERVICES --------"
-kubectl apply -f services/
-
-## enable monitoring
-echo "-------- STARTING MONITORING --------"
-kubectl apply -f prometheus/
-
 ## enable grafana
 echo "-------- STARTING GRAFANA --------"
 GRAPHANA_DATASOURCE_YAML="./generated/grafana-datasource-config.yaml";
-# wait for prometheus pod
-PROMETHEUS_IP="";
-while [ -z "$PROMETHEUS_IP" ]; do
-    sleep 5;
-    PROMETHEUS_IP="$(kubectl get pods --namespace=localnet -o wide |grep -i "prometheus"|awk '{print $6;}')";
-    echo "Waiting for prometheus data source";
-done;
-
 sed 's/\[prometheus_ip\]/'$PROMETHEUS_IP'/g' $GRAPHANA_DATASOURCE_TEMPLATE > $GRAPHANA_DATASOURCE_YAML;
 kubectl create -f $GRAPHANA_DATASOURCE_YAML
 kubectl create -f grafana/
+
+## enable services
+echo "-------- STARTING SERVICES --------"
+kubectl apply -f services/
