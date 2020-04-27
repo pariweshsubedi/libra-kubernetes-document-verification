@@ -6,6 +6,8 @@ metadata:
   labels:
     app: libra-faucet
     libra-node: "true"
+  annotations:
+    prometheus.io/should_be_scraped: 'true'
 spec:
   containers:
   - name: faucet
