@@ -7,6 +7,8 @@ metadata:
     app: libra-validator
     libra-node: "true"
     libra-validator-index: "val-[validator_index]-val"
+    role: "validator"
+    NodeIndex: [validator_index]
   annotations:
     prometheus.io/should_be_scraped: 'true'
     prometheus.io/scrape: 'true'
