@@ -6,15 +6,13 @@ metadata:
   labels:
     app: libra-validator
     libra-node: "true"
-    libra-validator-index: "val-[validator_index]-val"
-    role: "validator"
-    NodeIndex: [validator_index]
   annotations:
     prometheus.io/should_be_scraped: 'true'
     prometheus.io/scrape: 'true'
     prometheus.io/port: '9101'
 spec:
-  nodeName: "minikube"
+  hostNetwork: true
+  nodeName: "bbchain[node_index]"
   initContainers:
   - name: init
     image: pariwesh/thesis:libra_init
