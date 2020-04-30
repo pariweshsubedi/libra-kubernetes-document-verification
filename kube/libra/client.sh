@@ -1,7 +1,8 @@
-# ./client.sh <validator-IP>
-NODE="${1:-http://192.168.64.4}"
-VALIDATOR_IP=$NODE":30080/"
-FAUCET_IP=$NODE":30009/"
+# ./client.sh <validator-forwarded-IP> <faucet-forwarded-IP>
+VALIDATOR_PORT="${1:-5000}"
+FAUCET_PORT="${1:-5002}"
+VALIDATOR_IP="http://localhost:"$VALIDATOR_PORT"/"
+FAUCET_IP="http://localhost:"$FAUCET_PORT"/"
 
 CLIENT_DIR="$(pwd)/$line"
 KEY_FILE="$CLIENT_DIR./client/cli.key"
