@@ -16,6 +16,7 @@ spec:
   initContainers:
   - name: init
     image: pariwesh/thesis:libra_init
+    imagePullPolicy: IfNotPresent
     volumeMounts:
     - mountPath: /opt/libra/data
       name: data-[validator_index]
@@ -46,6 +47,7 @@ spec:
   containers:
   - name: main
     image: pariwesh/thesis:libra_validator_dynamic
+    imagePullPolicy: IfNotPresent
     resources:
       requests:
         cpu: 10m
