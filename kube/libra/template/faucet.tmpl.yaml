@@ -11,6 +11,8 @@ metadata:
     prometheus.io/scrape: 'true'
     prometheus.io/port: '9080'
 spec:
+  hostNetwork: true
+  nodeName: "bbchain15"
   containers:
   - name: faucet
     image: pariwesh/thesis:libra_mint

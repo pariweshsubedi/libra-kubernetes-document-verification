@@ -13,6 +13,7 @@ spec:
       labels:
         app: prometheus-server
     spec:
+      hostNetwork: true
       containers:
         - name: prometheus
           image: prom/prometheus:v2.2.1

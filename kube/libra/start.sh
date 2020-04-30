@@ -29,7 +29,7 @@ while [ $j -lt $NUMBER_OF_VALIDATORS ]
 do
     VALIDATOR_YAML="generated/validator-node-$j.yaml";
     # generate file
-    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g;s/\[prometheus_pushgateway\]/'$PROMETHEUS_IP'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
+    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g;s/\[prometheus_pushgateway\]/'$PROMETHEUS_IP'/g;s/\[node_index\]/'$[$j+1]'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
     # start pod
     kubectl create -f ./generated/validator-node-$j.yaml;
     j=$[$j+1];
@@ -49,6 +49,7 @@ FAUCET_YAML="./generated/faucet-node-"$FIRST_VALIDATOR_IP".yaml";
 sed 's/\[ac_host\]/'$FIRST_VALIDATOR_IP'/g' $FAUCET_TEMPLATE > $FAUCET_YAML;
 
 kubectl create -f $FAUCET_YAML;
+
 
 ## enable grafana
 echo "-------- STARTING GRAFANA --------"
