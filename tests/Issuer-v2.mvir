@@ -1,6 +1,7 @@
 //! account: bbchain, 1000000000
 //! account: university, 1000000000
 //! account: mathcourse, 1000000000
+//! account: anothercourse, 1000000000
 //! account: mathprofessor, 1000000000
 //! account: mathevaluator, 1000000000
 //! account: student1, 1000000000
@@ -40,9 +41,9 @@ module Proofs {
         nonce: u64 // counter from issuer
     }
 
-    // // stored with holder
+    // stored with holder
     resource CredentialAccount{
-        wallet_issuer : address,
+        issuer : address,
         holder : address,
         credential_proofs : vector<Self.CredentialProof>   
     }
@@ -61,8 +62,16 @@ module Proofs {
         return move(len);
     }
 
-    public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof) acquires CredentialAccount{
+    setCredentialProofDigest(credential_proof : &mut Self.CredentialProof, digest: vector<u8>){
+        *&mut copy(credential_proof).digest = copy(digest);
+        return;
+    }
+
+    public moveCredentialsProofToAccount(credential_proof: Self.CredentialProof, aggregation: vector<u8>) acquires CredentialAccount{
         let credential_account_ref: &mut Self.CredentialAccount;
+        
+        // *&mut copy(credential_proof).digest = h"";
+        Self.setCredentialProofDigest(&mut credential_proof, copy(aggregation));
 
         // TODO : check if credential is valid
         credential_account_ref = borrow_global_mut<CredentialAccount>(get_txn_sender());
@@ -247,7 +256,7 @@ module Proofs {
     public newCredentialAccount(_issuer: address, _holder: address){
         move_to_sender<CredentialAccount>(
             CredentialAccount {
-                wallet_issuer : move(_issuer),
+                issuer : move(_issuer),
                 holder : move(_holder),
                 credential_proofs : Vector.empty<Self.CredentialProof>()
             }
@@ -269,7 +278,7 @@ module Proofs {
     }
 
     public getCredentialProofDigests(credential_proof : &Self.CredentialProof): vector<vector<u8>>{
-        let digests: vector<vector<u8>>; //vector<bytearray>
+        let digests: vector<vector<u8>>; 
         let len: u64;
         let i: u64;
         let credentials: &vector<Self.Credential>;
@@ -297,6 +306,69 @@ module Proofs {
         return move(digests);
     }
 
+    public aggregateDigests(digests: vector<vector<u8>>): vector<u8>{
+        let aggregated_digest: vector<u8>;
+        let digests_mut: &mut vector<vector<u8>>;
+        let digest: vector<u8>;
+        let len: u64;
+        let i: u64;
+
+        aggregated_digest = h"";
+        digests_mut = &mut digests;
+        i = 0;
+        len = Vector.length<vector<u8>>(freeze(copy(digests_mut)));
+
+        loop {
+            digest = *Vector.borrow_mut<vector<u8>>(copy(digests_mut), copy(i));
+            Vector.append<u8>(&mut aggregated_digest, copy(digest));
+
+            i = copy(i) + 1;
+            if (copy(i) >= copy(len)) {
+                break;
+            }
+        }
+        
+        return move(aggregated_digest);
+    }
+
+    // aggregates digests in a credential account
+    public compileCredentialProof(holder:address): vector<vector<u8>>*vector<u8> acquires CredentialAccount{
+        let credential_account_ref: &mut Self.CredentialAccount;
+        let digests: vector<vector<u8>>;
+        let aggregated_digest : vector<u8>;
+        
+        credential_account_ref = borrow_global_mut<CredentialAccount>(copy(holder));
+        assert(*&copy(credential_account_ref).issuer == get_txn_sender(), 90);
+        
+        digests, aggregated_digest = Self.aggregateCredentialProofs(&copy(credential_account_ref).credential_proofs);
+        // *&mut copy(credential_account_ref).digest = copy(aggregated_digest);
+        return copy(digests), copy(aggregated_digest);
+    }
+
+    // aggregate credential proof digests
+    public aggregateCredentialProofs(credential_proofs: &vector<Self.CredentialProof>): vector<vector<u8>>*vector<u8>{
+        let digests: vector<vector<u8>>;
+        let credential_proof_ref: &Self.CredentialProof;
+        let len: u64;
+        let i: u64;
+        
+        i = 0;
+        len = Vector.length<Self.CredentialProof>(copy(credential_proofs));
+        digests = Vector.empty<vector<u8>>();
+
+        while (copy(i) < copy(len)) {
+            credential_proof_ref = Vector.borrow<Self.CredentialProof>(copy(credential_proofs), copy(i));
+            
+            Vector.push_back<vector<u8>>(
+                &mut digests, 
+                *&copy(credential_proof_ref).digest
+            );
+            
+            i = move(i) + 1;
+        }
+        return copy(digests), Self.aggregateDigests(copy(digests));
+    }
+
 }
 
 
@@ -308,7 +380,6 @@ module EarmarkedProofs {
     import 0x0.Vector;
     import 0x0.LibraAccount;
     // import 0x0.Hash;
-    // import 0x0.BytearrayUtil;
 
     struct MyEvent { 
         b: bool 
@@ -451,7 +522,7 @@ module EarmarkedProofs {
         
         sender_address = get_txn_sender();
 
-        // 1 sign the credential associated with bytearray (vector<u8>)
+        // 1 sign the credential associated with vector<u8>
         // ownership verification
         requester_logged_proofs = borrow_global_mut<LoggedProofs>(copy(issuer));
         owners = &copy(requester_logged_proofs).owners;
@@ -475,7 +546,7 @@ module EarmarkedProofs {
                 copy(credential_proofs), 
                 *move(signed_credential_mut)
             );
-            assert(copy(successfulTransfer), 42);
+            assert(copy(successfulTransfer), 49);
         }else{
             // push credential to logged credentials 
             Vector.push_back<Proofs.Credential>(
@@ -522,6 +593,7 @@ module EarmarkedProofs {
         let credential_proof_ref: &Proofs.CredentialProof;
         let requester_logged_proofs: &mut Self.LoggedProofs;
         let sender_address: address;
+        let aggregation: vector<u8>;
         sender_address = get_txn_sender();
 
         //TODO: validate that issuer knows the sender (in issuerresource.holders)
@@ -535,12 +607,39 @@ module EarmarkedProofs {
         credential_proof = Vector.swap_remove<Proofs.CredentialProof>(&mut copy(requester_logged_proofs).credential_proofs, copy(cp_index));
 
         // save digest as digest holder proof
-        Self.createDigestHolderProof(&credential_proof, copy(issuer));
+        aggregation = Self.createDigestHolderProof(&mut credential_proof, copy(issuer));
 
         // move credential proof to holder account
-        Proofs.moveCredentialsProofToAccount(move(credential_proof));
+        Proofs.moveCredentialsProofToAccount(move(credential_proof),move(aggregation));
 
         return;
+    }
+
+    createDigestHolderProof(credential_proof : &mut Proofs.CredentialProof, issuer: address): vector<u8> acquires DigestHolderProofs{
+        let digests: vector<vector<u8>>;
+        let digest_holder: Self.DigestHolder;
+        let requester_dh_proofs: &mut Self.DigestHolderProofs;
+        let holder: address;
+        let aggregation: vector<u8>;
+
+        requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(copy(issuer));
+
+        holder = Proofs.getCredentialProofHolder(freeze(copy(credential_proof)));
+        digests = Proofs.getCredentialProofDigests(freeze(copy(credential_proof)));
+        aggregation = Proofs.aggregateDigests(copy(digests));
+        
+        digest_holder = DigestHolder {
+            digests : copy(digests),
+            holder : move(holder),
+            aggregation : copy(aggregation)
+        };
+
+        Vector.push_back<Self.DigestHolder>(
+            &mut copy(requester_dh_proofs).digest_holders, 
+            copy(digest_holder)
+        );
+
+        return copy(aggregation);
     }
 
 
@@ -570,33 +669,6 @@ module EarmarkedProofs {
         
         return move(aggregated_digest);
     }
-
-
-    createDigestHolderProof(credential_proof : &Proofs.CredentialProof, issuer: address) acquires DigestHolderProofs{
-        let digests: vector<vector<u8>>;
-        let digest_holder: Self.DigestHolder;
-        let requester_dh_proofs: &mut Self.DigestHolderProofs;
-        let holder: address;
-
-        requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(copy(issuer));
-
-        holder = Proofs.getCredentialProofHolder(copy(credential_proof));
-        digests = Proofs.getCredentialProofDigests(copy(credential_proof));
-        
-        digest_holder = DigestHolder {
-            digests : copy(digests),
-            holder : move(holder),
-            aggregation : Self.aggregateProofs(copy(digests))
-        };
-
-        Vector.push_back<Self.DigestHolder>(
-            &mut copy(requester_dh_proofs).digest_holders, 
-            move(digest_holder)
-        );
-
-        return;
-    }
-
     
     //digest - aggregated digest to verify
     public verifyCredential(digest: vector<u8>, issuer: address, student: address): bool acquires DigestHolderProofs, RevocationProofs{
@@ -628,6 +700,28 @@ module EarmarkedProofs {
             i = move(i) + 1;
         }        
         return false;
+    }
+
+    public generateCredentialAccountDigest(holder:address) acquires DigestHolderProofs{
+        let digests: vector<vector<u8>>;
+        let aggregated_digest : vector<u8>;
+        let requester_dh_proofs: &mut Self.DigestHolderProofs;
+        let digest_holder: Self.DigestHolder;
+        
+        requester_dh_proofs = borrow_global_mut<DigestHolderProofs>(get_txn_sender());
+        digests, aggregated_digest = Proofs.compileCredentialProof(copy(holder));
+        
+        digest_holder = DigestHolder {
+            digests : copy(digests),
+            holder : copy(holder),
+            aggregation : copy(aggregated_digest)
+        };
+
+        Vector.push_back<Self.DigestHolder>(
+            &mut copy(requester_dh_proofs).digest_holders, 
+            copy(digest_holder)
+        );
+        return;
     }
 
 
@@ -674,6 +768,12 @@ module Issuer {
     //--------------------------------
     // Methods
     //--------------------------------
+
+    // Can only be invoked by credential account issuer. Ex: uni
+    public generateCredentialAccountDigest(holder:address){
+        EarmarkedProofs.generateCredentialAccountDigest(copy(holder));
+        return;
+    }
 
     public signCredential(issuer: address, digest: vector<u8>){
         let requester_account_ref: &mut Self.IssuerResource;
@@ -727,7 +827,7 @@ module Issuer {
     // student use this to register register with Issuer
     public initHolder(_issuer: address) acquires IssuerResource{
         assert(!Self.hasIssuerResource(get_txn_sender()), 42); // shouldn't be a holder
-        assert(!Proofs.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential wallet
+        assert(!Proofs.hasCredentialAccount(get_txn_sender()), 42); // shouldn't hold a credential account
         // TODO : check that the issuer has issuer resource
  
         Self.addHolder(get_txn_sender(), copy(_issuer));
@@ -961,6 +1061,28 @@ main() {
     return;
 }
 
+// Test that a course can be registered
+//! new-transaction
+//! sender: anothercourse
+import {{bbchain}}.Proofs;
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {    
+    let owners: vector<address>;
+    owners = Vector.empty<address>();
+    Vector.push_back<address>(&mut owners, {{mathprofessor}});
+    Vector.push_back<address>(&mut owners, {{mathevaluator}});
+    
+    // register issuer(course) with university as parent
+    Issuer.registerIssuer(move(owners), {{university}}, 2);
+
+    // register student to course
+    Issuer.registerHolder({{student1}});
+    
+    return;
+}
+
 // Register Credential for student
 //! new-transaction
 //! sender: mathcourse
@@ -975,6 +1097,23 @@ main() {
     // check if a credential is registered in earmarked proof
     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
     assert(move(logged_cp_len) == 3, 49);
+
+    return;
+}
+
+// Register Credential for student
+//! new-transaction
+//! sender: anothercourse
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let logged_cp_len: u64;
+    Issuer.registerCredential({{student1}}, h"00000004") ;
+
+    // check if a credential is registered in earmarked proof
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{anothercourse}});
+    assert(move(logged_cp_len) == 1, 49);
 
     return;
 }
@@ -1010,10 +1149,14 @@ main() {
     Issuer.signCredential({{mathcourse}}, h"00000001");
     Issuer.signCredential({{mathcourse}}, h"00000002");
     Issuer.signCredential({{mathcourse}}, h"00000003");
+    Issuer.signCredential({{anothercourse}}, h"00000004");
 
     // check if a credential still under credentials
     logged_cp_len = EarmarkedProofs.getCredentialLength({{mathcourse}});
     assert(move(logged_cp_len) == 3, 49);
+
+    logged_cp_len = EarmarkedProofs.getCredentialLength({{anothercourse}});
+    assert(move(logged_cp_len) == 1, 49);
 
     return;
 }
@@ -1043,6 +1186,29 @@ main() {
 }
 
 
+// Sign Credential as owner
+//! new-transaction
+//! sender: mathevaluator
+import {{bbchain}}.Issuer;
+import {{bbchain}}.EarmarkedProofs;
+main() {
+    let logged_c_len: u64;
+    let logged_cp_len: u64;
+    
+    Issuer.signCredential({{anothercourse}}, h"00000004");
+
+    logged_c_len = EarmarkedProofs.getCredentialLength({{anothercourse}});
+    // when quorum has signed the credential should be moved to credential proof
+    assert(move(logged_c_len) == 0, 49);
+
+    // number of credential proof should still be one, 
+    // it is only the credentials that were moved to CP when signed by owners
+    logged_cp_len = EarmarkedProofs.getCredentialProofLength({{anothercourse}});
+    assert(move(logged_cp_len) == 1, 49);
+    return;
+}
+
+
 // Test that a holder(student) can claim credential proof
 //! new-transaction
 //! sender: student1
@@ -1066,11 +1232,35 @@ main() {
     return;
 }
 
+// Test that a holder(student) can claim credential proof
+//! new-transaction
+//! sender: student1
+import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
+main() {
+    let logged_cp_len: u64;
+    let len_cp_credential_account: u64;
+
+    EarmarkedProofs.claimCP({{anothercourse}});
+
+    // number of credential proof should still be one, 
+    // it is only the credentials that were moved to CP when signed by owners
+    logged_cp_len = EarmarkedProofs.getCredentialProofLength({{anothercourse}});
+    assert(move(logged_cp_len) == 0, 49);
+
+    // student's credential account should now consist of the signed credential proof
+    len_cp_credential_account = Proofs.getCredentialAccountProofLength();
+    assert(move(len_cp_credential_account) == 2, 49);
+    
+    return;
+}
+
 
 // test that a digest can be verified
 //! new-transaction
 //! sender: verifier
 import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
 import {{bbchain}}.EarmarkedProofs;
 import 0x0.Vector;
 main() {
@@ -1083,9 +1273,28 @@ main() {
     Vector.push_back<vector<u8>>(&mut digests, h"00000002");
     Vector.push_back<vector<u8>>(&mut digests, h"00000003");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateDigests(move(digests));
     
     valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
+    assert(copy(valid_digest), 49);
+    return;
+}
+
+// test that a digest can be verified
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
+import {{bbchain}}.EarmarkedProofs;
+import 0x0.Vector;
+main() {
+    let valid_digest: bool;
+    let aggregated_digest: vector<u8>;
+    let digests: vector<vector<u8>>;
+    
+    aggregated_digest = h"00000004";
+    
+    valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{anothercourse}}, {{student1}} );
     assert(copy(valid_digest), 49);
     return;
 }
@@ -1123,9 +1332,20 @@ main() {
     return;
 }
 
-// Test that issuer can revoke digest
+// Test that a university can generate final aggregation for all collected CP
 //! new-transaction
-//! sender: mathcourse
+//! sender: university
+import {{bbchain}}.Issuer;
+main() {
+    Issuer.generateCredentialAccountDigest({{student1}});
+    return;
+}
+
+// test that a digest can be verified
+//! new-transaction
+//! sender: verifier
+import {{bbchain}}.Issuer;
+import {{bbchain}}.Proofs;
 import {{bbchain}}.EarmarkedProofs;
 import 0x0.Vector;
 main() {
@@ -1137,8 +1357,33 @@ main() {
     Vector.push_back<vector<u8>>(&mut digests, h"00000001");
     Vector.push_back<vector<u8>>(&mut digests, h"00000002");
     Vector.push_back<vector<u8>>(&mut digests, h"00000003");
+    Vector.push_back<vector<u8>>(&mut digests, h"00000004");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateDigests(move(digests));
+    
+    valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{university}}, {{student1}} );
+    assert(copy(valid_digest), 49);
+    return;
+}
+
+
+// Test that issuer can revoke digest
+//! new-transaction
+//! sender: mathcourse
+import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
+import 0x0.Vector;
+main() {
+    let valid_digest: bool;
+    let aggregated_digest: vector<u8>;
+    let digests: vector<vector<u8>>;
+
+    digests = Vector.empty<vector<u8>>();
+    Vector.push_back<vector<u8>>(&mut digests, h"00000001");
+    Vector.push_back<vector<u8>>(&mut digests, h"00000002");
+    Vector.push_back<vector<u8>>(&mut digests, h"00000003");
+    
+    aggregated_digest = Proofs.aggregateDigests(move(digests));
     
     EarmarkedProofs.revoke_digest(move(aggregated_digest));
     return;
@@ -1149,6 +1394,7 @@ main() {
 //! sender: verifier
 import {{bbchain}}.Issuer;
 import {{bbchain}}.EarmarkedProofs;
+import {{bbchain}}.Proofs;
 import 0x0.Vector;
 main() {
     let valid_digest: bool;
@@ -1160,8 +1406,9 @@ main() {
     Vector.push_back<vector<u8>>(&mut digests, h"00000002");
     Vector.push_back<vector<u8>>(&mut digests, h"00000003");
     
-    aggregated_digest = EarmarkedProofs.aggregateProofs(move(digests));
+    aggregated_digest = Proofs.aggregateDigests(move(digests));
     
+    // TODO : revoke from credential Account
     valid_digest = Issuer.verifyCredential(move(aggregated_digest), {{mathcourse}}, {{student1}} );
     return;
 }
