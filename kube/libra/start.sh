@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-NUMBER_OF_VALIDATORS="1";
+NUMBER_OF_VALIDATORS="3";
 VALIDATOR_TEMPLATE="template/validator.tmpl.yaml";
 FAUCET_TEMPLATE="template/faucet.tmpl.yaml";
 GRAPHANA_DATASOURCE_TEMPLATE="template/grafana/grafana-datasource-config.tmpl.yaml";
