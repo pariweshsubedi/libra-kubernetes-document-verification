@@ -1,5 +1,11 @@
 module Proofs {
     import 0x0.Vector;
+    import 0x0.LibraAccount;
+
+    struct DummyEvent { 
+        b: bool 
+    }
+
 
     struct Credential{
         digest : vector<u8>,
@@ -39,6 +45,14 @@ module Proofs {
     // // stored with issuer
     resource RevocationProofs{
         credential_proofs : vector<Self.RevocationProof>   
+    }
+
+    public emit_event(val: bool) {
+        let handle: LibraAccount.EventHandle<Self.DummyEvent>;
+        handle = LibraAccount.new_event_handle<Self.DummyEvent>();
+        LibraAccount.emit_event<Self.DummyEvent>(&mut handle, DummyEvent{ b: copy(val) });
+        LibraAccount.destroy_handle<Self.DummyEvent>(move(handle));
+        return;
     }
 
     public getCredentialAccountProofLength(): u64 acquires CredentialAccount {
@@ -225,6 +239,7 @@ module Proofs {
     public hasCredentialAccount(addr: address): bool {
         let has: bool;
         has = exists<CredentialAccount>(move(addr));
+        Self.emit_event(copy(has));
         return move(has);
     }
 
