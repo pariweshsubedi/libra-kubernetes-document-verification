@@ -1,4 +1,4 @@
-kubectl delete pods val-0 val-1 libra-faucet -n localnet
+kubectl delete pods val-0 val-1 val-2 libra-faucet -n localnet
 kubectl delete service faucet-service validator-service prometheus-service grafana -n localnet
 
 # remove prometheus deployment

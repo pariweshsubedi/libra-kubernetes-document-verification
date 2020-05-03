@@ -46,7 +46,7 @@ spec:
       done
   containers:
   - name: main
-    image: pariwesh/thesis:libra_validator_dynamic
+    image: pariwesh/thesis:libra_validator_dynamic-1.0.1
     imagePullPolicy: IfNotPresent
     resources:
       requests:
