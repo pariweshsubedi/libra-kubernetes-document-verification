@@ -10,7 +10,7 @@ spec:
   hostNetwork: true
   containers:
   - name: init
-    image: pariwesh/thesis:client
+    image: pariwesh/thesis:client-1.0.0
     imagePullPolicy: IfNotPresent
     securityContext:
       runAsUser: 0 # To get permissions to write to /opt/libra/data
@@ -21,3 +21,11 @@ spec:
       while [ true ]; do
         sleep 500;
       done;
+    volumeMounts:
+      - mountPath: "opt/libra/modules"
+        name: client-persistent-volumeclaim-name
+
+  volumes:
+    - name: client-persistent-volumeclaim-name
+      persistentVolumeClaim:
+       claimName: client-persistent-volumeclaim  

@@ -1,2 +1,2 @@
-CLIENT="${1:-val-0}"
+CLIENT="${1:-client}"
 kubectl exec -it $CLIENT -n localnet -- /bin/bash
