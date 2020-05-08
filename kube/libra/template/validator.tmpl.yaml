@@ -7,8 +7,6 @@ metadata:
     app: libra-validator
     libra-node: "true"
     libra-validator-index: "val-[validator_index]-val"
-    role: "validator"
-    NodeIndex: [validator_index]
   annotations:
     prometheus.io/should_be_scraped: 'true'
     prometheus.io/scrape: 'true'
@@ -17,7 +15,7 @@ spec:
   nodeName: "minikube"
   initContainers:
   - name: init
-    image: pariwesh/thesis:libra_init
+    image: pariwesh/thesis:libra_init-2.0.0
     volumeMounts:
     - mountPath: /opt/libra/data
       name: data-[validator_index]
@@ -47,7 +45,7 @@ spec:
       done
   containers:
   - name: main
-    image: pariwesh/thesis:libra_validator_dynamic
+    image: pariwesh/thesis:libra_validator_dynamic-2.0.0
     resources:
       requests:
         cpu: 10m
@@ -105,7 +103,7 @@ spec:
         # fi
         exec bash /docker-run-dynamic.sh
   - name: safety-rules
-    image: pariwesh/thesis:libra_safety_rules
+    image: pariwesh/thesis:libra_safety_rules-2.0.0
     imagePullPolicy: IfNotPresent
     volumeMounts:
     - mountPath: /opt/libra/data
