@@ -33,6 +33,8 @@ spec:
       value: "warn"
     - name: RUST_BACKTRACE
       value: "1"
+    - name: CFG_SEED
+      value: "1337133713371337133713371337133713371337133713371337133713371337"
     command:
       - "bash"
       - "-c"

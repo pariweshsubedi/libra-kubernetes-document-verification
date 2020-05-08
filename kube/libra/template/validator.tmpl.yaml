@@ -46,7 +46,7 @@ spec:
       done
   containers:
   - name: main
-    image: pariwesh/thesis:libra_validator_dynamic-1.0.1
+    image: pariwesh/thesis:libra_validator_dynamic-1.0.2
     imagePullPolicy: IfNotPresent
     resources:
       requests:
@@ -65,6 +65,8 @@ spec:
     securityContext:
       runAsUser: 0 # To get permissions to write to /opt/libra/data
     env:
+    - name: CFG_OVERRIDES
+      value: "enabled=true"
     - name: CFG_NODE_INDEX
       value: "[validator_index]"
     - name: CFG_NUM_VALIDATORS
@@ -72,7 +74,7 @@ spec:
     - name: CFG_NUM_FULLNODES
       value: "0"
     - name: CFG_SEED
-      value: ""
+      value: "1337133713371337133713371337133713371337133713371337133713371337"
     - name: CFG_FULLNODE_SEED
       value: ""
     - name: RUST_LOG
