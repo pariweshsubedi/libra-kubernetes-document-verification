@@ -35,6 +35,10 @@ spec:
       value: "1"
     - name: CFG_SEED
       value: "1337133713371337133713371337133713371337133713371337133713371337"
+    - name: CFG_NUM_VALIDATORS
+      value: "3"
+    - name: WAYPOINT
+      value: "0:0ace663dbcaa390ee9405559f5e4dbb21f6f34b6bfa609de57518d8088428821"
     command:
       - "bash"
       - "-c"
@@ -44,4 +48,3 @@ spec:
         export RUST_BACKTRACE=full
         /opt/libra/bin/config-builder faucet -o /opt/libra/etc
         cd /opt/libra/bin && exec gunicorn --bind 0.0.0.0:9000 --access-logfile - --error-logfile - --log-level $LOG_LEVEL server
-        

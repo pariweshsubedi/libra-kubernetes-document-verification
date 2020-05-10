@@ -6,6 +6,7 @@ metadata:
   labels:
     app: libra-validator
     libra-node: "true"
+    role: 'validator'
   annotations:
     prometheus.io/should_be_scraped: 'true'
     prometheus.io/scrape: 'true'
@@ -46,7 +47,7 @@ spec:
       done
   containers:
   - name: main
-    image: pariwesh/thesis:libra_validator_dynamic-2.0.0
+    image: pariwesh/thesis:libra_validator_dynamic-2.0.1
     imagePullPolicy: IfNotPresent
     resources:
       requests:
@@ -120,7 +121,7 @@ spec:
     - name: CFG_NUM_VALIDATORS
       value: "[number_of_validators]"
     - name: CFG_SEED
-      value: ""
+      value: "1337133713371337133713371337133713371337133713371337133713371337"
     - name: CFG_SAFETY_RULES_LISTEN_ADDR
       value: "127.0.0.1:6185"
     - name: PUSH_METRICS_ENDPOINT
