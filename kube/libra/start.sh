@@ -29,7 +29,7 @@ while [ $j -lt $NUMBER_OF_VALIDATORS ]
 do
     VALIDATOR_YAML="generated/validator-node-$j.yaml";
     # generate file
-    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g;s/\[prometheus_pushgateway\]/'$PROMETHEUS_IP'/g;s/\[node_index\]/'$[$j+1]'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
+    sed 's/\[validator_index\]/'$j'/g;s/\[number_of_validators\]/'$NUMBER_OF_VALIDATORS'/g;s/\[prometheus_pushgateway\]/'$PROMETHEUS_IP'/g;s/\[node_index\]/'$[$j+4]'/g' $VALIDATOR_TEMPLATE > $VALIDATOR_YAML;
     # start pod
     kubectl create -f ./generated/validator-node-$j.yaml;
     j=$[$j+1];
@@ -64,17 +64,18 @@ kubectl apply -f services/
 
 ## enable prometheus scraper
 PROMETHEUS_VALIDATOR_TEXT=""
-PROMETHEUS_SCRAPER_YAML="./generated/prometheus-config-map.yaml";
+PROMETHEUS_SCRAPER_YAML="prometheus-config-map.yaml";
+#PROMETHEUS_SCRAPER_YAML="./generated/prometheus-config-map.yaml";
 
-j="0";
-while [ $j -lt $NUMBER_OF_VALIDATORS ]
-do
-		VALIP=$(kubectl get pod/val-${j} -n localnet -o=jsonpath='{.status.podIP}');
-		PROMETHEUS_VALIDATOR_TEXT=$PROMETHEUS_VALIDATOR_TEXT's/\[val_0_index\]/'$j'/g;s/\[val_0_ip\]/'$VALIP'/g;'
-    j=$[$j+1];
-done
+#j="0";
+#while [ $j -lt $NUMBER_OF_VALIDATORS ]
+#do
+#		VALIP=$(kubectl get pod/val-${j} -n localnet -o=jsonpath='{.status.podIP}');
+#		PROMETHEUS_VALIDATOR_TEXT=$PROMETHEUS_VALIDATOR_TEXT's/\[val_0_index\]/'$j'/g;s/\[val_0_ip\]/'$VALIP'/g;'
+#    j=$[$j+1];
+#done
 
-sed $PROMETHEUS_VALIDATOR_TEXT $PROMETHEUS_SCRAPER_TEMPLATE > $PROMETHEUS_SCRAPER_YAML;
+#sed $PROMETHEUS_VALIDATOR_TEXT $PROMETHEUS_SCRAPER_TEMPLATE > $PROMETHEUS_SCRAPER_YAML;
 
 # apply prometheus config scraper
 kubectl apply -f $PROMETHEUS_SCRAPER_YAML
