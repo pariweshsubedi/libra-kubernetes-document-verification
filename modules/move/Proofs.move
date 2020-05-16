@@ -913,33 +913,39 @@ module Issuer {
 // Test that a university can register
 //! new-transaction
 //! sender: university
+//! args: {{mathprofessor}}, {{mathevaluator}}, 2
 use {{bbchain}}::Issuer;
 use 0x0::Vector;
 use 0x0::Transaction;
-fun main() {
+fun main(    
+    owner1: address,
+    owner2: address,
+    quorum: u64
+) {
     let exists1: bool;
     let existsLoggedProofs: bool;
     let sender: address;
     let owners: vector<address>;
 
+    sender = Transaction::sender();
+
     // check if issuer resource exists
-    exists1 = Issuer::hasIssuerResource({{university}});
+    exists1 = Issuer::hasIssuerResource(copy sender);
     Transaction::assert(exists1 == false, 42);
     
     // define owners
     owners = Vector::empty<address>();
-    Vector::push_back<address>(&mut owners, {{mathprofessor}});
-    Vector::push_back<address>(&mut owners, {{mathevaluator}});
+    Vector::push_back<address>(&mut owners, owner1);
+    Vector::push_back<address>(&mut owners, owner2);
     
     // register issuer with no parent
     Issuer::registerIssuer(
         owners, // _owners
         0x00, // _parent_issuer
-        2, // _quorum
+        quorum, // _quorum
     );
     
     // check if issuer resource exists
-    sender = Transaction::sender();
     exists1 = Issuer::hasIssuerResource(copy sender);
     Transaction::assert(exists1, 42);
 
@@ -951,17 +957,20 @@ fun main() {
 // Test that a holder(student) can register in a university
 //! new-transaction
 //! sender: student1
+//! args: {{university}}
 use {{bbchain}}::Issuer;
 use {{bbchain}}::Proofs;
 use 0x0::Transaction;
-fun main() {
+fun main(
+    issuer: address,
+) {
     let exists1: bool;
     // check if issuer resource exists
     exists1 = Proofs::hasCredentialAccount(Transaction::sender());
     Transaction::assert(copy exists1 == false, 42);
 
     //register to a university
-    Issuer::initHolder({{university}});
+    Issuer::initHolder(issuer);
     
     // check if credential account is created after registration
     exists1 = Proofs::hasCredentialAccount(Transaction::sender());
@@ -971,61 +980,64 @@ fun main() {
 // Test that a course can be registered
 //! new-transaction
 //! sender: mathcourse
+//! args: {{university}}, {{mathprofessor}}, {{mathevaluator}}, 2
 use {{bbchain}}::Issuer;
 use {{bbchain}}::EarmarkedProofs;
 use 0x0::Vector;
 use 0x0::Transaction;
-fun main() {
-    let exists1: bool;
-    let existsLoggedProofs: bool;
-    let existsRevocationProofs: bool;
+fun main(
+    parent_issuer: address,
+    owner1: address,
+    owner2: address,
+    quorum: u64
+) {
     let sender: address;
-    let logged_cp_len: u64;
-    let has_ownership: bool;
-    
     let owners: vector<address>;
+
     owners = Vector::empty<address>();
-    Vector::push_back<address>(&mut owners, {{mathprofessor}});
-    Vector::push_back<address>(&mut owners, {{mathevaluator}});
+    Vector::push_back<address>(&mut owners, owner1);
+    Vector::push_back<address>(&mut owners, owner2);
 
     sender = Transaction::sender();
-    exists1 = Issuer::hasIssuerResource(sender);
-    Transaction::assert((exists1) == false, 42);
+    // check that the issuer is not already registered as issuer
+    Transaction::assert(Issuer::hasIssuerResource(copy sender) == false, 42);
 
     // check that issuer has logged proof resource
-    existsLoggedProofs = EarmarkedProofs::hasLoggedProofs(sender);
-    Transaction::assert((existsLoggedProofs) == false, 42);
+    Transaction::assert(EarmarkedProofs::hasLoggedProofs(copy sender) == false, 42);
     
     // register issuer(course) with university as parent
-    Issuer::registerIssuer((owners), {{university}}, 2);
+    Issuer::registerIssuer(owners, parent_issuer, quorum);
     
     // check if issuer resource in earmarked module was created exists
-    exists1 = Issuer::hasIssuerResource(copy sender);
-    Transaction::assert((exists1), 42);
-    existsLoggedProofs = EarmarkedProofs::hasLoggedProofs(copy sender);
-    Transaction::assert((existsLoggedProofs), 42);
-    existsRevocationProofs = EarmarkedProofs::hasRevocationProofs(copy sender);
-    Transaction::assert((existsRevocationProofs), 42);
+    Transaction::assert(Issuer::hasIssuerResource(copy sender), 42);
+    Transaction::assert(EarmarkedProofs::hasLoggedProofs(copy sender), 42);
+    Transaction::assert(EarmarkedProofs::hasRevocationProofs(copy sender), 42);
 
     // check that the owners are registerd to sign earmarked proofs
-    has_ownership = Issuer::hasOwnership({{mathprofessor}}, copy sender);
-    Transaction::assert(has_ownership, 123);
-    has_ownership = EarmarkedProofs::hasOwnership({{mathprofessor}}, copy sender);
-    Transaction::assert(has_ownership, 123);
-    has_ownership = Issuer::hasOwnership({{mathevaluator}}, copy sender);
-    Transaction::assert(has_ownership, 123);
-    has_ownership = EarmarkedProofs::hasOwnership({{mathevaluator}}, copy sender);
-    Transaction::assert(has_ownership, 123);
-
-    // register student to course
-    Issuer::registerHolder({{student1}});
-
-    // check if a credential proof is registered in earmarked proof
-    logged_cp_len = EarmarkedProofs::getCredentialProofLength(sender);
-    Transaction::assert((logged_cp_len) == 1, 49);
-
-    
+    Transaction::assert(Issuer::hasOwnership(owner1, copy sender), 123);
+    Transaction::assert(EarmarkedProofs::hasOwnership(owner1, copy sender), 123);
+    Transaction::assert(Issuer::hasOwnership(owner2, copy sender), 123);
+    Transaction::assert(EarmarkedProofs::hasOwnership(owner2, copy sender), 123);
 }
+
+// Test that a student can be registered into course
+//! new-transaction
+//! sender: mathcourse
+//! args: {{student1}}
+use {{bbchain}}::Issuer;
+use {{bbchain}}::EarmarkedProofs;
+use 0x0::Transaction;
+fun main(
+    holder: address
+) {
+    // check that the issuer is registered as issuer
+    Transaction::assert(Issuer::hasIssuerResource(Transaction::sender()), 42);
+    // register student to course
+    Issuer::registerHolder(holder);
+    // check if a credential proof is registered in earmarked proof
+    Transaction::assert(EarmarkedProofs::getCredentialProofLength(Transaction::sender()) == 1, 49);
+}
+
 
 // Test that a course can be registered
 //! new-transaction
@@ -1048,41 +1060,51 @@ fun main() {
 // Register Credential for student
 //! new-transaction
 //! sender: mathcourse
+//! args: {{student1}}, b"00000001", b"00000002", b"00000003"
 use {{bbchain}}::Issuer;
 use {{bbchain}}::EarmarkedProofs;
 use 0x0::Transaction;
-fun main() {
-    let logged_cp_len: u64;
-    Issuer::registerCredential({{student1}}, x"00000001") ;
-    Issuer::registerCredential({{student1}}, x"00000002") ;
-    Issuer::registerCredential({{student1}}, x"00000003") ;
+fun main(
+    student: address,
+    digest1: vector<u8>,
+    digest2: vector<u8>,
+    digest3: vector<u8>,
+) {
+    Issuer::registerCredential(copy student, digest1) ;
+    Issuer::registerCredential(copy student, digest2) ;
+    Issuer::registerCredential(copy student, digest3) ;
 
     // check if a credential is registered in earmarked proof
-    logged_cp_len = EarmarkedProofs::getCredentialLength({{mathcourse}});
-    Transaction::assert((logged_cp_len) == 3, 49);
+    Transaction::assert(EarmarkedProofs::getCredentialLength(Transaction::sender()) == 3, 49);
 }
 
 // Register Credential for student
 //! new-transaction
 //! sender: anothercourse
+//! args: {{student1}}, b"00000004"
 use {{bbchain}}::Issuer;
 use {{bbchain}}::EarmarkedProofs;
 use 0x0::Transaction;
-fun main() {
-    let logged_cp_len: u64;
-    Issuer::registerCredential({{student1}}, x"00000004") ;
+fun main(
+    student: address,
+    digest1: vector<u8>,
+) {
+    Issuer::registerCredential(copy student, digest1) ;
 
     // check if a credential is registered in earmarked proof
-    logged_cp_len = EarmarkedProofs::getCredentialLength({{anothercourse}});
-    Transaction::assert((logged_cp_len) == 1, 49);   
+    Transaction::assert(EarmarkedProofs::getCredentialLength(Transaction::sender()) == 1, 49);
 }
 
 // Signing non existent credential should result in error
 //! new-transaction
 //! sender: mathprofessor
+//! args: {{mathcourse}}, b"0000000100"
 use {{bbchain}}::Issuer;
-fun main() {
-    Issuer::signCredential({{mathcourse}}, x"0000000100");
+fun main(
+    course: address,
+    digest: vector<u8>
+) {
+    Issuer::signCredential(course, digest);
     
 }
 // check: ABORTED
@@ -1172,69 +1194,68 @@ fun main() {
 // Test that a holder(student) can claim credential proof
 //! new-transaction
 //! sender: student1
+//! args: {{mathcourse}}
 use {{bbchain}}::EarmarkedProofs;
 use {{bbchain}}::Proofs;
 use 0x0::Transaction;
-fun main() {
-    let logged_cp_len: u64;
-    let len_cp_credential_account: u64;
+fun main(
+    course: address,
+) {
+    EarmarkedProofs::claimCP(copy course);
 
-    EarmarkedProofs::claimCP({{mathcourse}});
-
-    // number of credential proof should still be one, 
-    // it is only the credentials that were d to CP when signed by owners
-    logged_cp_len = EarmarkedProofs::getCredentialProofLength({{mathcourse}});
-    Transaction::assert((logged_cp_len) == 0, 49);
+    // number of earmarked credential proof should decrease to 0
+    // it should have been moved to holder's credential account
+    Transaction::assert(EarmarkedProofs::getCredentialProofLength(copy course) == 0, 49);
 
     // student's credential account should now consist of the signed credential proof
-    len_cp_credential_account = Proofs::getCredentialAccountProofLength();
-    Transaction::assert((len_cp_credential_account) == 1, 49);
+    Transaction::assert(Proofs::getCredentialAccountProofLength() == 1, 49);
 }
 
 // Test that a holder(student) can claim credential proof
 //! new-transaction
 //! sender: student1
+//! args: {{anothercourse}}
 use {{bbchain}}::EarmarkedProofs;
 use {{bbchain}}::Proofs;
 use 0x0::Transaction;
-fun main() {
-    let logged_cp_len: u64;
-    let len_cp_credential_account: u64;
-
-    EarmarkedProofs::claimCP({{anothercourse}});
+fun main(
+    course: address,
+) {
+    EarmarkedProofs::claimCP(course);
 
     // number of credential proof should still be one, 
     // it is only the credentials that were d to CP when signed by owners
-    logged_cp_len = EarmarkedProofs::getCredentialProofLength({{anothercourse}});
-    Transaction::assert((logged_cp_len) == 0, 49);
+    Transaction::assert(EarmarkedProofs::getCredentialProofLength(course) == 0, 49);
 
     // student's credential account should now consist of the signed credential proof
-    len_cp_credential_account = Proofs::getCredentialAccountProofLength();
-    Transaction::assert((len_cp_credential_account) == 2, 49);   
+    Transaction::assert(Proofs::getCredentialAccountProofLength() == 2, 49);   
 }
 
 
 // test that a digest can be verified
 //! new-transaction
 //! sender: verifier
+//! args: b"000000010000000200000003", {{mathcourse}}, {{student1}}
 use {{bbchain}}::Issuer;
-use {{bbchain}}::Proofs;
 use 0x0::Transaction;
-use 0x0::Vector;
-fun main() {
-    let valid_digest: bool;
-    let aggregated_digest: vector<u8>;
-    let digests: vector<vector<u8>>;
+// use {{bbchain}}::Proofs;
+// use 0x0::Vector;
+fun main(
+    digest: vector<u8>,
+    issuer: address,
+    holder: address
+) {
+    // let valid_digest: bool;
+    // let aggregated_digest: vector<u8>;
+    // let digests: vector<vector<u8>>;
 
-    digests = Vector::empty<vector<u8>>();
-    Vector::push_back<vector<u8>>(&mut digests, x"00000001");
-    Vector::push_back<vector<u8>>(&mut digests, x"00000002");
-    Vector::push_back<vector<u8>>(&mut digests, x"00000003");
+    // digests = Vector::empty<vector<u8>>();
+    // Vector::push_back<vector<u8>>(&mut digests, x"00000001");
+    // Vector::push_back<vector<u8>>(&mut digests, x"00000002");
+    // Vector::push_back<vector<u8>>(&mut digests, x"00000003");
     
-    aggregated_digest = Proofs::aggregateDigests((digests));
-    
-    valid_digest = Issuer::verifyCredential((aggregated_digest), {{mathcourse}}, {{student1}} );
-    Transaction::assert(valid_digest, 49); 
+    // aggregated_digest = Proofs::aggregateDigests((digests));
+    Transaction::assert(Issuer::verifyCredential(digest, issuer, holder), 49); 
 }
 
 // test that a digest registered for anothercourse can be verified
@@ -1316,10 +1337,8 @@ fun main() {
     aggregated_digest = Proofs::aggregateDigests((digests));
     
     valid_digest = Issuer::verifyCredential((aggregated_digest), {{university}}, {{student1}} );
-    Transaction::assert((valid_digest), 49);
-    
+    Transaction::assert((valid_digest), 49);   
 }
-
 
 // Test that issuer can revoke digest
 //! new-transaction
