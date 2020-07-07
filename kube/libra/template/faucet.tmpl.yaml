@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: libra-faucet
+  namespace: localnet
+  labels:
+    app: libra-faucet
+    libra-node: "true"
+  annotations:
+    prometheus.io/should_be_scraped: 'true'
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9080'
+spec:
+  hostNetwork: true
+  nodeName: "bbchain15"
+  containers:
+  - name: faucet
+    image: pariwesh/thesis:libra_mint-2.0.0
+    resources:
+      requests:
+        cpu: 5m
+    ports:
+    - containerPort: 9080
+    - containerPort: 9000
+    env:
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name : "AC_HOST"
+      value: "[ac_host]"
+    - name: AC_PORT
+      value: "8080"
+    - name: RUST_LOG
+      value: "warn"
+    - name: RUST_BACKTRACE
+      value: "1"
+    - name: CFG_SEED
+      value: "1337133713371337133713371337133713371337133713371337133713371337"
+    - name: CFG_NUM_VALIDATORS
+      value: "3"
+    - name: WAYPOINT
+      value: "0:0ace663dbcaa390ee9405559f5e4dbb21f6f34b6bfa609de57518d8088428821"
+    command:
+      - "bash"
+      - "-c"
+      - |
+        set -x;
+        export RUST_BACKTRACE=$RUST_BACKTRACE;
+        export RUST_BACKTRACE=full
+        /opt/libra/bin/config-builder faucet -o /opt/libra/etc
+        cd /opt/libra/bin && exec gunicorn --bind 0.0.0.0:9000 --access-logfile - --error-logfile - --log-level $LOG_LEVEL server

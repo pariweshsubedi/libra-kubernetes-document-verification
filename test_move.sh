@@ -6,8 +6,8 @@
 LIBRADIR="$HOME/libra"
 
 BASEDIR=$(dirname "$0")
-LIBRA_MODULES_DIR="$LIBRADIR/language/ir-testsuite/tests/testsuite/modules/custom_modules"
-CUSTOM_MODULES_DIR="$BASEDIR/tests"
+LIBRA_MODULES_DIR="$LIBRADIR/language//move-lang/tests/functional/custom_modules"
+CUSTOM_MODULES_DIR="$BASEDIR/modules/move/"
 
 # remove custom modules
 if [ -d "$LIBRA_MODULES_DIR" ]; then
@@ -23,4 +23,4 @@ scp -rp  $CUSTOM_MODULES_DIR $LIBRA_MODULES_DIR
 # cd to libra directory and run the test command
 cd $LIBRADIR
 # cargo test -p functional_tests modules/custom_modules
-cargo test -p ir-testsuite modules/custom_modules
+cargo test -p move-lang functional_testsuite

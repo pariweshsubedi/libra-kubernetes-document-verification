@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-deployment
+  namespace: localnet
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prometheus-server
+    spec:
+      hostNetwork: true
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.2.1
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus/"
+            - "--web.enable-lifecycle"
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: prometheus-config-volume
+              mountPath: /etc/prometheus/
+            - name: prometheus-storage-volume
+              mountPath: /prometheus/
+        - name: pushgateway
+          image: prom/pushgateway:v1.2.0
+          ports:
+            - containerPort: 9091
+      volumes:
+        - name: prometheus-config-volume
+          configMap:
+            defaultMode: 420
+            name: prometheus-server-conf
+
+        - name: prometheus-storage-volume
+          emptyDir: {}
+      
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: localnet
+  annotations:
+      prometheus.io/should_be_scraped: 'true'
+      prometheus.io/scrape: 'true'
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+
+spec:
+  selector:
+    app: prometheus-server
+  type: NodePort
+  ports:
+    - port: 9090
+      targetPort: 9090
+      nodePort: 30001

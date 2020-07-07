@@ -1,0 +1,15 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: client-persistent-volume
+  namespace: localnet
+  labels:
+    type: local
+spec:
+  storageClassName: pv-demo 
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/home/stud/pariwesh/thesis-project/modules/bbchain"
