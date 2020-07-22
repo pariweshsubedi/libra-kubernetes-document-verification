@@ -22,7 +22,8 @@ These can be replaced by any other docker images by modifying images in validato
 
 
 # Other Development scripts
-`transport.sh` - libra module testing applies to `*.mvir` modules and requires them to be moved to `libra/language/functional_tests/tests/testsuite/modules`. It works by moving modules and scripts to `language/functional_tests/tests/testsuite/modules/custom_modules` and triggering move test.
+* `transport.sh` - Move intermediate language(`*.mvir`) defined modules and requires them to be moved to `libra/language/functional_tests/tests/testsuite/modules`. It works by moving modules and scripts to `language/functional_tests/tests/testsuite/modules/custom_modules` and triggering move test.
+* `test_move.sh` - Move programs(`*.move`) also needs to be in a defined directory for the tests to work. This script moves any files in `modules/move/` directory to `<libra-installation-dir>/language//move-lang/tests/functional/custom_modules` where move verifier can test the files from.
 
 # Note:
 - the default network doesn't host a faucet server but the seed values from validators can be used with clients to mint Libra coins into Libra accounts.
