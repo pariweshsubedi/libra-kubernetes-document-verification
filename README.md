@@ -5,7 +5,7 @@ Docker images for kubernetes were created using https://github.com/pariweshsubed
 
 # Starting a kubernetes network
 
-Configuration defined for kubernetes network uses docker images form [docker repository](https://hub.docker.com/r/pariwesh/thesis/tags) which for different libra components but under the same docker repository. These images are used as a part of kubernetes configuration. All the configuration and scripts relating to starting your own kubernetes network resides under `kube/libra/` directory.
+Configuration defined for kubernetes network uses docker images from [docker repository](https://hub.docker.com/r/pariwesh/thesis/tags). Here, different libra components are present under the same docker repository but tagged such that it represents different components for the libra network. These images are used as a part of kubernetes configuration. All the configuration and scripts relating to starting your own kubernetes network resides under `kube/libra/` directory. Among them two important ones are:
 
 - `start.sh` - starts core validator node and monitoring nodes(prometheis, grafana) in a kubernetes network with libra validators. Validator templates are defined in [kube/libra/template/validator.tmpl.yaml](https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml) and can be used to configure network variables such as validator seeds, docker images for validators/safetyrules/initialization container, container ports, etc.
 - `stop.sh` - stops all nodes started by the `start.sh` script
