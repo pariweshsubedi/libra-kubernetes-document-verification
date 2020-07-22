@@ -3,12 +3,21 @@ This repository holds kubernetes configuration to host a libra network and some 
 
 Docker images for kubernetes were created using https://github.com/pariweshsubedi/libra-bbchain-port and example of Libra modules for document verification can be found under : https://github.com/pariweshsubedi/libra-bbchain-port/tree/master/testsuite/bbchain-test/src/modules/move
 
-# Starting a kubernetes network
+# Starting a Libra network using kubernetes
 
-Configuration defined for kubernetes network uses docker images from [docker repository](https://hub.docker.com/r/pariwesh/thesis/tags). Here, different libra components are present under the same docker repository but tagged such that it represents different components for the libra network. These images are used as a part of kubernetes configuration. All the configuration and scripts relating to starting your own kubernetes network resides under `kube/libra/` directory. Among them two important ones are:
+Configuration defined for kubernetes network uses docker images from [docker repository](https://hub.docker.com/r/pariwesh/thesis/tags). Here, different libra components are present under the same docker repository but tagged such that it represents different components for the libra network. These images are used as a part of kubernetes configuration. 
+
+All the configuration and scripts relating to starting your own kubernetes network resides under `kube/libra/` directory. Among them two important ones are:
 
 - `start.sh` - starts core validator node and monitoring nodes(prometheis, grafana) in a kubernetes network with libra validators. Validator templates are defined in [kube/libra/template/validator.tmpl.yaml](https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml) and can be used to configure network variables such as validator seeds, docker images for validators/safetyrules/initialization container, container ports, etc.
 - `stop.sh` - stops all nodes started by the `start.sh` script
+
+### Docker images and their organization
+Libra components used here exists under same docker repository but under different tags:
+- **validator** : pariwesh/thesis:libra_validator_dynamic-2.0.1
+- **container initialization** : pariwesh/thesis:libra_init-2.0.0
+- **safety rules** : pariwesh/thesis:libra_safety_rules-2.0.0
+These images can be replaced by any other images by modifying images in https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L19, https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L50 and https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L111 respectively.
 
 
 # Other Development scripts
