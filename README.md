@@ -17,7 +17,8 @@ Libra components used here exists under same docker repository but under differe
 - **validator** : pariwesh/thesis:libra_validator_dynamic-2.0.1
 - **container initialization** : pariwesh/thesis:libra_init-2.0.0
 - **safety rules** : pariwesh/thesis:libra_safety_rules-2.0.0
-These images can be replaced by any other images by modifying images in https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L19, https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L50 and https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml#L111 respectively.
+
+These can be replaced by any other docker images by modifying images in validator configuration template file. https://github.com/pariweshsubedi/libra-kubernetes-document-verification/blob/master/kube/libra/template/validator.tmpl.yaml.
 
 
 # Other Development scripts
